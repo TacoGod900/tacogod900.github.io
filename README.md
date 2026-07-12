@@ -1,4 +1,4 @@
-# persona 3 reload pause menu recreation!
+# persona 3 reload pause menu web remake!
 
 i made this because i love the ui in the persona series, and wanted to challenge myself! :)
 
