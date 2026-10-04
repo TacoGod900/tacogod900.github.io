@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Persona 3 Reload Pause Menu</title>
+	<title>HG Portfolio — Henryk</title>
 </svelte:head>
 
 {@render children()}

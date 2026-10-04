@@ -21,3 +21,15 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Local tooling
+.npm-cache/
+.claude/
+
+# Intermediate assets not loaded by the site
+static/skills-pose-a.png
+static/skills-pose-b.png
+static/skills-reference.png
+static/skills-status-1080.jpg
+static/official-fv1.mp4
+static/official-fv2.mp4

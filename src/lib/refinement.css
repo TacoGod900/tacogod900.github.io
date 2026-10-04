@@ -1,0 +1,76 @@
+.hg-stage .hg-logo{width:500px;height:315px;right:280px;top:70px;filter:drop-shadow(0 8px 5px #020d42aa)}
+.hg-stage .title-options{right:255px;bottom:120px;transform:scale(.9);width:680px}
+.hg-stage .title-options>div{margin-bottom:-124px}
+.hg-stage .main-options{left:760px;top:275px}
+.hg-stage .main-options>div{margin-bottom:-111px}
+.word-hitbox:focus-visible{outline:3px solid #fff!important;border-radius:8px;outline-offset:0!important}
+.reset-notice{font:25px 'Skip Std B',serif;color:#77fefc;text-align:center;margin-top:35px;min-height:45px}
+/* Skills: one inventory composition, one moving cursor, untouched source artwork. */
+.menu-video.skills-video{visibility:hidden;transform:none;filter:none}
+.hg-stage:has(.skills-video){background:#07104e}
+.skill-reference{position:absolute;inset:0;z-index:1;background:#0730b4;pointer-events:none}
+.skill-reference:after{content:'';position:absolute;inset:0;background:#fff;clip-path:polygon(0 0,100% 0,44% 26%,0 26%)}
+.skill-wash{position:absolute;inset:0;z-index:2;background:#07104e;clip-path:polygon(0 120px,840px 120px,920px 220px,870px 800px,0 850px);pointer-events:none}
+.inventory-title{position:absolute;z-index:3;left:-12px;top:-54px;margin:0;color:#a8abc6;font:italic 154px 'Rodin Pro Bold',sans-serif;letter-spacing:-22px;animation:inventory-title-in .48s cubic-bezier(.2,.8,.2,1) both}
+.inventory-tabs{position:absolute;z-index:4;left:58px;top:145px;width:745px;display:flex;gap:20px;border-bottom:2px solid #61edff;padding-bottom:14px}
+.inventory-tabs button{background:none;border:0;color:#65f4ff;font:24px 'Skip Std B',serif;cursor:pointer;padding:4px 22px;transform:skew(-7deg);transition:color .15s,background .15s}
+.inventory-tabs button.active{background:white;color:#091345;box-shadow:4px -4px #ff519f}
+.skill-list{position:absolute;z-index:4;left:50px;top:222px;width:760px;height:576px;isolation:isolate}
+.skill-list button{position:relative;display:grid;grid-template-columns:48px 1fr 174px 58px;gap:15px;align-items:center;width:100%;height:48px;padding:0 18px;border:0;background:transparent;color:#67f6ff;cursor:pointer;text-align:left;transform:skew(-5deg);animation:inventory-row-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--row)*22ms)}
+.skill-list button:before{content:'';position:absolute;inset:2px 0;background:#010821;z-index:-2}
+.skill-list button.active{color:#091342}
+.skill-list button.active:before{background:transparent}
+.skill-list strong{font:25px 'Skip Std B',serif;white-space:nowrap}
+.skill-list small{font:11px 'NewRodin Pro',sans-serif;letter-spacing:1px}
+.skill-icon{font:18px 'NewRodin Pro',sans-serif;color:#fff;display:grid;place-items:center;height:31px;background:#005ca9;clip-path:polygon(10% 0,100% 0,90% 100%,0 100%)}
+.skill-quantity{font:17px 'Skip Std B',serif;color:#fff;background:#01081e;border-radius:16px;text-align:center}
+.inventory-cursor{position:absolute;left:-8px;top:0;width:calc(100% + 16px);height:48px;background:#fff;border-top:4px solid #ff367d;box-shadow:7px 0 #ff367d;z-index:-1;pointer-events:none;transition:transform .22s cubic-bezier(.2,.85,.25,1)}
+.inventory-cursor:after{content:'';position:absolute;left:-15px;top:12px;width:17px;height:17px;background:#58faff;transform:rotate(45deg);animation:cursor-beat 1.2s ease-in-out infinite}
+.skill-detail{position:absolute;z-index:5;left:0;right:0;top:820px;bottom:0;background:#fff;color:#091342;padding:34px 70px 60px;border-top:5px solid #ff367d;animation:inventory-detail-in .45s cubic-bezier(.2,.8,.2,1) both}
+.skill-detail:before{content:'';position:absolute;left:0;top:-30px;width:850px;height:30px;background:#fff;clip-path:polygon(0 100%,100% 0,100% 100%)}
+.skill-detail>div{display:grid;grid-template-columns:350px 590px 1fr;gap:45px;align-items:start}
+.skill-type,.skill-index{font:13px 'NewRodin Pro',sans-serif;letter-spacing:2px;color:#12619d}
+.skill-detail h2{font:italic 40px/1.2 'Rodin Pro Bold',sans-serif;letter-spacing:-3px;margin:8px 0 14px}
+.skill-detail p{font:23px/1.55 'Skip Std B',serif;margin:0}
+.skill-detail h3{font:14px 'NewRodin Pro',sans-serif;letter-spacing:2px;color:#005bc2;margin:0 0 5px}
+.skill-detail p.skill-use{font:17px/1.45 'NewRodin Pro',sans-serif;margin-bottom:12px}
+.skill-projects{display:flex;gap:12px;flex-wrap:wrap}
+.skill-projects a,.skill-projects span{display:block;background:#07104e;color:white;padding:6px 13px;font:17px 'Skip Std B',serif;text-decoration:none;transition:transform .16s,background .16s}
+.skill-projects a:hover{background:#0047bc;transform:translateY(-3px)}
+.inventory-hint{position:absolute;z-index:6;bottom:20px;left:70px;color:#175485;font:17px 'Skip Std B',serif}
+.inventory-hint span{margin-left:28px}
+.hg-stage:has(.skills-video) .hg-controls p,.hg-stage:has(.skills-video) .hg-controls .guide{display:none}
+.hg-stage:has(.skills-video) .hg-controls{bottom:15px;color:#07104e;text-shadow:none}
+.hg-stage:has(.skills-video) .control-buttons b{color:white}
+@keyframes inventory-row-in{from{opacity:0;transform:translateX(-60px) skew(-5deg)}to{opacity:1;transform:translateX(0) skew(-5deg)}}
+@keyframes inventory-title-in{from{transform:translateX(-120px)}to{transform:translateX(0)}}
+@keyframes inventory-detail-in{from{transform:translateY(140px)}to{transform:translateY(0)}}
+@keyframes cursor-beat{50%{transform:translateX(-5px) rotate(45deg)}}
+.skill-reference{background:#0730b4}
+.skill-reference:after{background:#fff}
+
+/* Project detail: links, screenshot strip and lightbox */
+.has-about-plate .bio{max-height:560px;padding-top:22px}
+.project-links{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:4px 0 22px}
+.project-links .repo-link{margin-top:0}
+.demo-link{background:#ff2b62;color:#fff;box-shadow:5px -5px #fff}
+.shot-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:860px}
+.shot{position:relative;display:block;overflow:hidden;padding:0;border:0;background:#fff;cursor:pointer;box-shadow:5px -5px #ff459b;transform:skew(-4deg);animation:shot-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*60ms);transition:transform .16s,box-shadow .16s}
+.shot:hover,.shot:focus-visible{transform:skew(-4deg) translateY(-6px);box-shadow:7px -7px #ff459b}
+.shot img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;object-position:top;transform:skew(4deg) scale(1.08)}
+.shot span{position:absolute;left:0;right:0;bottom:0;background:#091342;color:#67f6ff;font:15px 'Skip Std B',serif;padding:4px 10px;text-align:left;transform:skew(4deg)}
+@keyframes shot-in{from{opacity:0;transform:skew(-4deg) translateX(-40px)}to{opacity:1;transform:skew(-4deg)}}
+.lightbox{position:absolute;inset:0;z-index:30;background:#020827ee;display:grid;place-items:center;animation:lightbox-in .22s ease-out both}
+.lightbox img{width:1500px;max-width:90%;box-shadow:12px -12px #ff2b62,0 30px 60px #000a;border:4px solid #fff;background:#fff}
+.lightbox-bar{position:absolute;left:210px;right:210px;bottom:38px;display:flex;align-items:center;gap:30px;color:#fff;font:italic 28px 'NewRodin Pro',sans-serif;text-shadow:0 2px 4px #000}
+.lightbox-count{font:22px 'Skip Std B',serif;color:#67f6ff}
+.lightbox-hint{margin-left:auto;font:19px 'Skip Std B',serif;color:#95b6dd}
+.lightbox-close{position:absolute;top:30px;right:40px;border:3px solid #fff;border-radius:30px;background:#061a64;color:#fff;font:20px Arial,sans-serif;padding:8px 18px;cursor:pointer;box-shadow:0 0 0 3px #586780}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);border:0;background:#fff;color:#091342;font:60px/1 'Rodin Pro Bold',sans-serif;width:70px;height:110px;cursor:pointer;box-shadow:5px -5px #ff2b62;clip-path:polygon(15% 0,100% 0,85% 100%,0 100%)}
+.lightbox-nav.prev{left:60px}.lightbox-nav.next{right:60px}
+.lightbox-nav:hover{background:#67f6ff}
+@keyframes lightbox-in{from{opacity:0}to{opacity:1}}
+
+/* Main menu: scale the five labels up so they fill the stage like the game's nine */
+.hg-stage .main-options{left:690px;top:215px;transform:scale(1.18);transform-origin:top left}
+.hg-stage .main-options>div{margin-bottom:-108px}

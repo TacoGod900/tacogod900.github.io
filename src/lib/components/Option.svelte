@@ -12,14 +12,17 @@
 
   let element: SVGElement;
   let textElement: SVGTextElement;
-  let textRedElement: SVGTextElement;
+  let textRedElement = $state<SVGTextElement>();
   let backgroundElement: SVGPathElement;
   let backgroundMaskElement: SVGPathElement;
+  let textWidth = $state(300);
 
-  let { index, isSelected, onSelect, option }: {
+  let { index, isSelected, onSelect, option, onActivate = () => {}, motion = true }: {
     index: number,
     isSelected: boolean,
     onSelect: () => void
+    onActivate?: () => void
+    motion?: boolean
     option: OptionValue
   } = $props();
 
@@ -37,29 +40,34 @@
   });
 
   function select() {
-    animate([textElement, textRedElement], {
+    animate([textElement, textRedElement].filter(Boolean) as SVGTextElement[], {
       scale: 1.5,
-      duration: 100,
+      duration: motion ? 100 : 0,
       ease: spring({ bounce: 0.5, stiffness: 300, duration: 100 }),
       direction: "alternate"
     });
   }
 
   function deselect() {
-    animate([textElement, textRedElement], {
+    animate([textElement, textRedElement].filter(Boolean) as SVGTextElement[], {
       scale: 1,
       duration: 0
     });
   }
 
   onMount(() => {
+    document.fonts.ready.then(() => { if(textElement) textWidth = textElement.getComputedTextLength(); });
     utils.set(element, {
       translateX: option.offsetX,
       translateY: option.offsetY,
       rotate: option.rotation
     });
 
-    createTimeline({
+  });
+
+  $effect(() => {
+    if (!motion || !backgroundElement || !backgroundMaskElement) return;
+    const timeline = createTimeline({
       loop: Infinity
     }).add([backgroundElement, backgroundMaskElement], {
       delay: 600,
@@ -69,17 +77,11 @@
       duration: 50,
       scale: 1,
     });
+    return () => timeline.cancel();
   });
 </script>
 
 <div class="relative pointer-events-none" style:z-index={isSelected ? 5 : option.zIndex}>
-  <button
-    class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-16 outline-none pointer-events-auto cursor-pointer"
-    onmouseover={onSelect}
-    onfocus={onSelect}
-    title={option.description}
-  ></button>
-
   <svg
     bind:this={element}
     width="950"
@@ -88,6 +90,9 @@
     class="cursor-pointer outline-none pointer-events-none"
     transform-origin="25% center"
   >
+    <foreignObject x={isSelected ? 95 : 140} y={isSelected ? 27 : 53} width={textWidth * (isSelected ? 1.5 : 1) + 30} height={isSelected ? 115 : 82} style="overflow:visible;pointer-events:auto">
+      <button class="word-hitbox" onmouseenter={onSelect} onfocus={onSelect} onclick={onActivate} aria-label={option.name} title={option.description} style="width:100%;height:100%;background:transparent;border:0;cursor:pointer;pointer-events:auto"></button>
+    </foreignObject>
     <defs>
       <mask
         id={selectorMaskId}
