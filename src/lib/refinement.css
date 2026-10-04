@@ -15,7 +15,8 @@
 .inventory-tabs{position:absolute;z-index:4;left:58px;top:145px;width:745px;display:flex;gap:20px;border-bottom:2px solid #61edff;padding-bottom:14px}
 .inventory-tabs button{background:none;border:0;color:#65f4ff;font:24px 'Skip Std B',serif;cursor:pointer;padding:4px 22px;transform:skew(-7deg);transition:color .15s,background .15s}
 .inventory-tabs button.active{background:white;color:#091345;box-shadow:4px -4px #ff519f}
-.skill-list{position:absolute;z-index:4;left:50px;top:222px;width:760px;height:576px;isolation:isolate}
+.skill-list{position:absolute;z-index:4;left:28px;top:222px;width:800px;height:576px;padding:0 18px 0 22px;box-sizing:border-box;isolation:isolate;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.skill-list::-webkit-scrollbar{display:none}
 .skill-list button{position:relative;display:grid;grid-template-columns:48px 1fr 174px 58px;gap:15px;align-items:center;width:100%;height:48px;padding:0 18px;border:0;background:transparent;color:#67f6ff;cursor:pointer;text-align:left;transform:skew(-5deg);animation:inventory-row-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--row)*22ms)}
 .skill-list button:before{content:'';position:absolute;inset:2px 0;background:#010821;z-index:-2}
 .skill-list button.active{color:#091342}
@@ -24,8 +25,8 @@
 .skill-list small{font:11px 'NewRodin Pro',sans-serif;letter-spacing:1px}
 .skill-icon{font:18px 'NewRodin Pro',sans-serif;color:#fff;display:grid;place-items:center;height:31px;background:#005ca9;clip-path:polygon(10% 0,100% 0,90% 100%,0 100%)}
 .skill-quantity{font:17px 'Skip Std B',serif;color:#fff;background:#01081e;border-radius:16px;text-align:center}
-.inventory-cursor{position:absolute;left:-8px;top:0;width:calc(100% + 16px);height:48px;background:#fff;border-top:4px solid #ff367d;box-shadow:7px 0 #ff367d;z-index:-1;pointer-events:none;transition:transform .22s cubic-bezier(.2,.85,.25,1)}
-.inventory-cursor:after{content:'';position:absolute;left:-15px;top:12px;width:17px;height:17px;background:#58faff;transform:rotate(45deg);animation:cursor-beat 1.2s ease-in-out infinite}
+.inventory-cursor{position:absolute;left:14px;top:0;width:776px;height:48px;background:#fff;border-top:4px solid #ff367d;box-shadow:7px 0 #ff367d;z-index:-1;pointer-events:none;transition:transform .22s cubic-bezier(.2,.85,.25,1)}
+.inventory-cursor:after{content:'';position:absolute;left:-14px;top:12px;width:17px;height:17px;background:#58faff;transform:rotate(45deg);animation:cursor-beat 1.2s ease-in-out infinite}
 .skill-detail{position:absolute;z-index:5;left:0;right:0;top:820px;bottom:0;background:#fff;color:#091342;padding:34px 70px 60px;border-top:5px solid #ff367d;animation:inventory-detail-in .45s cubic-bezier(.2,.8,.2,1) both}
 .skill-detail:before{content:'';position:absolute;left:0;top:-30px;width:850px;height:30px;background:#fff;clip-path:polygon(0 100%,100% 0,100% 100%)}
 .skill-detail>div{display:grid;grid-template-columns:350px 590px 1fr;gap:45px;align-items:start}
