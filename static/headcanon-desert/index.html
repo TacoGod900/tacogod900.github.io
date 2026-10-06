@@ -1,0 +1,1488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headcanon — desert world (proof of concept)</title>
+<meta name="description" content="A proof of concept for Headcanon's homepage: a painted desert where every fandom lives as a character. Not a finished site; nothing is for sale.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 fill=%22%23000%22/%3E%3C/svg%3E">
+<style>
+  /* Layout: a scrolling page whose content is one continuous live-shaded
+     scene: sky, three painted dune bands, a beach whose sand runs on under the
+     water, and a reef on three seabed bands below. The page scrolls normally;
+     the scene follows the scroll. Corner UI only: logo, centred search,
+     icons, a small clock. The scene keeps its own colours at every hour, so
+     the page has a single look and sets its colours explicitly. */
+  @font-face { font-family: "Inter"; src: url("fonts/inter-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Inter"; src: url("fonts/inter-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "Inter"; src: url("fonts/inter-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+  :root {
+    color-scheme: dark;
+    --glass: rgba(12, 12, 18, .58); --glass-hi: rgba(18, 18, 26, .78); --edge: rgba(255, 255, 255, .14); --edge-hi: rgba(255, 255, 255, .28);
+    --text: #f3f2f7; --muted: rgba(243, 242, 247, .6); --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+  body { margin: 0; background: #0d0b1e; color: var(--text); font: 15px/1.4 var(--ui); }
+  #spacer { width: 1px; }
+  .scene { position: fixed; inset: 0; overflow: hidden; }
+  .scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  #light { mix-blend-mode: screen; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  #hit { position: fixed; inset: 0; z-index: 5; cursor: default; touch-action: pan-y; }
+  .vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse 120% 90% at 50% 45%, transparent 55%, rgba(10, 6, 30, .28)); }
+
+  /* corner UI */
+  .top { position: fixed; z-index: 10; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr minmax(0, 560px) 1fr; align-items: center; gap: 16px; padding: 18px 22px; pointer-events: none; }
+  .top > * { pointer-events: auto; }
+  .logo { justify-self: start; display: block; width: 40px; height: 40px; background: #000; }
+  .logo:focus-visible, .icon:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .search { position: relative; }
+  .search-box { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 16px; border: 1px solid var(--edge); border-radius: 14px; background: var(--glass); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); box-shadow: 0 10px 30px rgba(10, 6, 30, .22); transition: border-color .2s, background .2s; }
+  .search-box:focus-within { border-color: var(--edge-hi); background: var(--glass-hi); }
+  .search-box svg { flex: none; opacity: .7; }
+  .search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; color: var(--text); font: 15px var(--ui); outline: none; }
+  .search input::placeholder { color: var(--muted); }
+  .kbd { flex: none; min-width: 26px; height: 26px; padding: 0 7px; border: 1px solid var(--edge); border-radius: 7px; color: var(--muted); font: 500 12px/24px var(--ui); text-align: center; }
+  .results { position: absolute; left: 0; right: 0; top: calc(100% + 8px); max-height: min(62vh, 520px); overflow: auto; padding: 8px; border: 1px solid var(--edge); border-radius: 16px; background: var(--glass-hi); -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%); box-shadow: 0 24px 60px rgba(10, 6, 30, .4); display: none; }
+  .results.on { display: block; animation: drop .16s ease-out both; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-4px); } }
+  .group { padding: 10px 10px 6px; color: var(--muted); font: 500 11px var(--ui); letter-spacing: .08em; text-transform: uppercase; }
+  .hit { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: 14px var(--ui); text-align: left; cursor: pointer; }
+  .hit:hover, .hit[aria-selected="true"] { background: rgba(255, 255, 255, .08); }
+  .thumb { flex: none; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; font: 600 13px var(--ui); color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); }
+  .hit small { display: block; color: var(--muted); font-size: 12px; }
+  .empty { padding: 18px 10px; color: var(--muted); }
+  .right { justify-self: end; display: flex; gap: 6px; }
+  .icon { position: relative; width: 40px; height: 40px; border: 0; padding: 0; background: none; color: #fff; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(20, 10, 40, .45)); transition: transform .15s; }
+  .icon:hover { transform: translateY(-1px); }
+  .icon .n { position: absolute; top: 3px; right: 1px; color: #fff; font: 600 11px/1 var(--ui); }
+  .dial { position: fixed; z-index: 10; top: 76px; right: 24px; display: grid; justify-items: center; gap: 4px; color: #fff; filter: drop-shadow(0 1px 2px rgba(20, 10, 40, .5)); }
+  .dial > svg { display: block; width: 76px; height: 76px; cursor: grab; touch-action: none; }
+  .dial > svg:active { cursor: grabbing; }
+  .dial > svg:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+  .dial-row { display: flex; align-items: center; gap: 6px; font: 500 12px var(--ui); font-variant-numeric: tabular-nums; }
+  .dial-row button { width: 22px; height: 22px; padding: 0; border: 0; background: none; color: #fff; display: grid; place-items: center; cursor: pointer; opacity: .9; }
+  .dial-row button[aria-pressed="true"] { opacity: .35; cursor: default; }
+  .cue { position: fixed; z-index: 10; left: 50%; bottom: 14px; width: 40px; height: 40px; margin-left: -20px; border: 0; padding: 0; background: none; color: #fff; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(20, 10, 40, .5)); transition: opacity .4s; animation: bob 2.4s ease-in-out infinite; }
+  .cue.gone { opacity: 0; pointer-events: none; }
+  @keyframes bob { 50% { transform: translateY(4px); } }
+  .beacon { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .85) 0, rgba(255, 246, 230, .35) 22%, transparent 62%); opacity: 0; transform: scale(.6); transition: opacity .35s, transform .35s; }
+  .beacon.on { opacity: 1; transform: scale(1); animation: breathe 1.8s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(1.12); } }
+  .beacon b { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -26px); padding: 5px 10px; border-radius: 8px; background: var(--glass-hi); color: var(--text); font: 500 12px var(--ui); white-space: nowrap; }
+  /* characters: each piece sits between the scene's layers and takes the scene's light */
+  .piece { position: absolute; left: 0; top: 0; transform-origin: 0 0; isolation: isolate; will-change: transform; }
+  .piece img { display: block; width: 100%; height: 100%; filter: saturate(.82); }
+  .piece.fadeTop { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 30%); mask-image: linear-gradient(to bottom, transparent 0, #000 30%); }
+  .piece i { position: absolute; inset: 0; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+  .piece .tint { mix-blend-mode: multiply; } .piece .haze { mix-blend-mode: screen; }
+  .piece { transition: filter .35s ease; }
+  .piece.lit { filter: drop-shadow(0 0 5px rgba(255, 255, 255, .55)) drop-shadow(0 0 16px rgba(255, 244, 228, .35)); }
+  #hit.over { cursor: pointer; }
+  .tag { position: fixed; z-index: 9; left: 0; top: 0; padding: 6px 14px 6px 6px; border: 1px solid var(--edge); border-radius: 12px; background: var(--glass-hi); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); box-shadow: 0 12px 30px rgba(10, 6, 30, .3); opacity: 0; transform: translateY(4px); transition: opacity .25s, transform .25s; pointer-events: none; }
+  .tag.on { opacity: 1; transform: none; }
+  .tag canvas { display: block; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .white { position: fixed; inset: 0; z-index: 30; background: #fff; opacity: 0; pointer-events: none; transition: opacity .6s ease; }
+  .white.on { opacity: 1; pointer-events: auto; }
+  .nogl { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); background: #0d0b1e; }
+  @media (max-width: 720px) { .top { grid-template-columns: auto 1fr auto; padding: 12px; gap: 10px; } .right .icon:not(.menu) { display: none; } .kbd { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .beacon.on, .cue { animation: none; } }
+
+  .note { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(10, 8, 24, .55); }
+  .note[hidden] { display: none; }
+  .note-card { max-width: 520px; padding: 28px 28px 24px; background: rgba(16, 14, 28, .94); border: 1px solid var(--edge); color: var(--text); }
+  .note-kicker { margin: 0 0 6px; font: 600 11px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #ffd27a; }
+  .note h1 { margin: 0 0 14px; font: 600 22px/1.25 var(--ui); }
+  .note p { margin: 0 0 12px; font: 15px/1.5 var(--ui); color: var(--text); }
+  .note .note-small { font-size: 12.5px; color: var(--muted); }
+  .note button { margin-top: 8px; width: 100%; height: 46px; border: 0; background: #fff; color: #111; font: 600 15px var(--ui); cursor: pointer; }
+  .note button:focus-visible { outline: 2px solid #ffd27a; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div id="spacer"></div>
+<div class="scene" id="scene" aria-hidden="true">
+  <canvas id="sky"></canvas>
+  <canvas id="birds"></canvas>
+  <div class="layer" id="behindFar"></div>
+  <canvas id="far"></canvas>
+  <canvas id="fx0"></canvas>
+  <div class="layer" id="behindMid"></div>
+  <canvas id="mid"></canvas>
+  <canvas id="fx1"></canvas>
+  <div class="layer" id="behindNear"></div>
+  <canvas id="near"></canvas>
+  <canvas id="fx2"></canvas>
+  <div class="layer" id="onNear"></div>
+  <canvas id="deep"></canvas>
+  <div class="layer" id="underwater"></div>
+  <canvas id="water"></canvas>
+  <div class="layer" id="onWater"></div>
+  <canvas id="light"></canvas>
+  <canvas id="fxTop"></canvas>
+  <div class="layer" id="beacons"></div>
+</div>
+<div class="vignette" aria-hidden="true"></div>
+<div id="hit"></div>
+<div class="tag" id="tag" aria-live="polite"><canvas id="tagCv"></canvas><span class="sr" id="tagText"></span></div>
+<div class="white" id="white" aria-hidden="true"></div>
+<div class="note" id="note" role="dialog" aria-modal="true" aria-labelledby="noteTitle" aria-describedby="noteBody">
+  <div class="note-card">
+    <p class="note-kicker">Proof of concept</p>
+    <h1 id="noteTitle">Headcanon: the desert world</h1>
+    <div id="noteBody">
+      <p>This is a proof of concept for Headcanon's homepage, not a finished site. Nothing here is for sale and the shop behind it is not open.</p>
+      <p>Every fandom lives in the desert as a character in its own style. Hover a character to see whose it is, click the sand or the water, drag the clock to change the time, and scroll down to dive under the surface.</p>
+      <p class="note-small">The characters and artwork belong to their owners, including Nintendo, Sega, The Pokémon Company, Mojang Studios and Microsoft, FromSoftware and Bandai Namco, Maddy Makes Games, Shueisha, Kodansha and Disney. Headcanon is not affiliated with or endorsed by any of them. The dunes, water, reef and fish are Headcanon's own.</p>
+    </div>
+    <button id="noteGo" type="button">Enter the desert</button>
+  </div>
+</div>
+
+
+<header class="top">
+  <a class="logo" href="#" aria-label="Headcanon home"></a>
+  <div></div>
+  <nav class="right" aria-label="Account">
+    <button class="icon menu" id="aboutBtn" aria-label="About this proof of concept" aria-haspopup="dialog"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </nav>
+</header>
+
+<div class="dial" id="dial">
+  <svg viewBox="-50 -50 100 100" id="dialFace" role="slider" tabindex="0" aria-label="Time of day in the scene" aria-valuemin="0" aria-valuemax="24" aria-valuenow="12">
+    <circle r="45" fill="rgba(20,14,40,.12)" stroke="currentColor" stroke-width="1.6"/>
+    <g id="ticks" stroke="currentColor" stroke-linecap="round"></g>
+    <circle cy="-33" r="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+    <path d="M2.6 30.2a4 4 0 1 1 0 6.6 3.2 3.2 0 1 0 0-6.6z" fill="currentColor" transform="translate(-1.5 -0.5)"/>
+    <line id="hourHand" y2="-22" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+    <line id="minHand" y2="-36" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    <circle r="3.2" fill="currentColor"/>
+  </svg>
+  <div class="dial-row"><button id="nowBtn" aria-pressed="true" aria-label="Back to your time"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button></div>
+</div>
+<button class="cue" id="cue" aria-label="Scroll down into the water"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+
+<script>
+(function () {
+  "use strict";
+  var A = 16 / 9;            // design space: x 0..A; y is height, the waterline sits near .3
+  var BOTTOM = -1.0;          // the deepest the view goes
+  var SHEET = .14;            // how far the visible water surface reaches below the shoreline
+  function $(id) { return document.getElementById(id); }
+
+  /* ── terrain: three dune bands traced from Henryk's sketch, three seabed bands below ── */
+  var BANDS = [
+    [[-0.2, .60], [0.0, .605], [0.27, .615], [0.53, .655], [0.80, .70], [1.07, .74], [1.33, .735], [1.52, .71], [1.78, .655], [2.0, .62]],
+    [[-0.2, .43], [0.0, .44], [0.27, .475], [0.52, .51], [0.98, .545], [1.33, .55], [1.60, .525], [1.80, .465], [2.0, .43]],
+    [[-0.2, .385], [0.0, .39], [0.40, .375], [0.86, .405], [1.30, .392], [1.62, .40], [1.80, .385], [2.0, .38]],
+    [[-0.2, -.50], [0.2, -.475], [0.55, -.515], [0.9, -.46], [1.25, -.5], [1.6, -.47], [2.0, -.5]],
+    [[-0.2, -.66], [0.3, -.62], [0.7, -.67], [1.05, -.63], [1.45, -.665], [1.8, -.615], [2.0, -.63]],
+    [[-0.2, -.82], [0.25, -.79], [0.6, -.845], [1.0, -.8], [1.4, -.835], [1.75, -.79], [2.0, -.82]]
+  ];
+  function bandTop(L, x) { // Catmull-Rom through the points, mirrored in the shader
+    var P = BANDS[L], i = 0; while (i < P.length - 2 && x > P[i + 1][0]) i++;
+    var p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    var t = Math.max(0, Math.min(1, (x - p1[0]) / (p2[0] - p1[0]))), dx = p2[0] - p1[0];
+    var m1 = (p2[1] - p0[1]) / (p2[0] - p0[0] || 1) * dx, m2 = (p3[1] - p1[1]) / (p3[0] - p1[0] || 1) * dx, t2 = t * t, t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * p1[1] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2[1] + (t3 - t2) * m2 + .004 * Math.sin(x * 9 + L * 2.1);
+  }
+  function shoreY(x) { return .305 + .014 * Math.sin(x * 2.6 + 1.2) + .006 * Math.sin(x * 7.1 + .4); }
+  // waves: every 8 s a swell rolls in, breaks, runs up the sand and drains back
+  function wavePhase(x, t) { var u = t / 8 + .035 * Math.sin(x * 1.3); return u - Math.floor(u); }
+  function runup(u) {
+    if (u < .45) return 0;
+    if (u < .6) { var k = (u - .45) / .15; return 1 - Math.pow(1 - k, 3); }
+    var b = (u - .6) / .4; return 1 - (b < .5 ? 2 * b * b : 1 - Math.pow(-2 * b + 2, 2) / 2);
+  }
+  function swashY(x, t) { return shoreY(x) - .006 + .019 * runup(wavePhase(x, t)) + .0015 * Math.sin(x * 31 + t); }
+  function glslTerrain() {
+    var all = [], ranges = [], k = 0;
+    BANDS.forEach(function (band) { ranges.push([k, k + band.length]); band.forEach(function (d) { all.push("vec2(" + d[0].toFixed(4) + "," + d[1].toFixed(4) + ")"); k++; }); });
+    return "const vec2 B[" + all.length + "] = vec2[" + all.length + "](" + all.join(",") + ");\n" +
+      "const ivec2 RANGE[6] = ivec2[6](" + ranges.map(function (r) { return "ivec2(" + r[0] + "," + r[1] + ")"; }).join(",") + ");\n";
+  }
+
+  var VERT = "#version 300 es\nin vec2 a; out vec2 vUv; void main(){ vUv = a * .5 + .5; gl_Position = vec4(a, 0., 1.); }";
+  var FRAG = "#version 300 es\nprecision highp float;\n" + glslTerrain() + `
+in vec2 vUv; out vec4 o;
+uniform vec2 uRes; uniform float uT; uniform int uPart; uniform vec4 uMap;
+uniform vec3 uSkyTop, uSkyMid, uSkyHor, uLightCol, uLit, uShade, uHaze, uRim, uWaterA, uWaterB;
+uniform vec2 uLightPos, uSunPos, uMoonPos; uniform float uLightI, uSunI, uMoonI, uStars, uNight;
+uniform vec4 uRip[10];
+const float A = 1.7778, SHEET = ${SHEET.toFixed(3)};
+
+float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + 1.), f.x), f.y); }
+float fbm(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + 17.1; a *= .5; } return s; }
+
+float topOf(int L, float x){
+  int s0 = RANGE[L].x, s1 = RANGE[L].y; int i = s0;
+  for (int k = s0; k < s1 - 2; k++) { if (x > B[k + 1].x) i = k + 1; }
+  vec2 p0 = B[max(s0, i - 1)], p1 = B[i], p2 = B[i + 1], p3 = B[min(s1 - 1, i + 2)];
+  float dx = p2.x - p1.x, t = clamp((x - p1.x) / dx, 0., 1.);
+  float m1 = (p2.y - p0.y) / max(p2.x - p0.x, 1e-4) * dx, m2 = (p3.y - p1.y) / max(p3.x - p1.x, 1e-4) * dx;
+  float t2 = t * t, t3 = t2 * t;
+  return (2. * t3 - 3. * t2 + 1.) * p1.y + (t3 - 2. * t2 + t) * m1 + (-2. * t3 + 3. * t2) * p2.y + (t3 - t2) * m2 + .004 * sin(x * 9. + float(L) * 2.1);
+}
+float shoreY(float x){ return .305 + .014 * sin(x * 2.6 + 1.2) + .006 * sin(x * 7.1 + .4); }
+float wavePhase(float x){ return fract(uT / 8. + .035 * sin(x * 1.3)); }
+float runup(float u){
+  if (u < .45) return 0.;
+  if (u < .6) { float k = (u - .45) / .15; return 1. - pow(1. - k, 3.); }
+  float b = (u - .6) / .4; return 1. - (b < .5 ? 2. * b * b : 1. - pow(-2. * b + 2., 2.) / 2.);
+}
+float swashY(float x){ return shoreY(x) - .006 + .019 * runup(wavePhase(x)) + .0015 * sin(x * 31. + uT); }
+
+vec3 skyCol(vec2 p){
+  vec3 c = mix(uSkyHor, uSkyMid, smoothstep(.5, .78, p.y));
+  c = mix(c, uSkyTop, smoothstep(.72, 1.08, p.y));
+  c += uSkyHor * .18 * exp(-abs(p.y - .6) * 18.);
+  return c;
+}
+vec3 sparkles(vec2 p, float amt){
+  vec3 s = vec3(0);
+  for (int k = 0; k < 3; k++) {
+    float sc = 22. + float(k) * 19.; vec2 g = p * sc; vec2 id = floor(g); vec2 f = fract(g) - .5;
+    float r = h21(id + float(k) * 7.); if (r < .78 - float(k) * .08) continue;
+    vec2 off = vec2(h21(id + 3.1), h21(id + 9.7)) - .5; float d = length(f - off * .7);
+    float size = .04 + .1 * h21(id + 1.7); float tw = .55 + .45 * sin(uT * (.6 + 1.6 * h21(id + 5.)) + r * 40.);
+    s += vec3(1., .97, .95) * (exp(-d * d / (size * size * .06)) + .35 * exp(-d * d / (size * size))) * tw * amt;
+  }
+  return s;
+}
+float caustic(vec2 uv, float t){
+  vec2 p = mod(uv * 6.28318, 6.28318) - 250.; vec2 i = p; float c = 1.; float inten = .005;
+  for (int n = 0; n < 4; n++) { float tt = t * (1. - (3.5 / float(n + 1))); i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x)); c += 1. / length(vec2(p.x / (sin(i.x + tt) / inten), p.y / (cos(i.y + tt) / inten))); }
+  c /= 4.; c = 1.17 - pow(c, 1.4); return pow(abs(c), 8.);
+}
+// the water column's colour at a height, shared by the reef so everything sits in the same water
+vec3 shallowCol(){ return mix(uWaterA, vec3(1.), .18); }
+vec3 deepCol(){ return mix(uWaterB, vec3(.07, .05, .24), .55); }
+vec3 columnCol(float y){ return mix(deepCol(), shallowCol(), smoothstep(-1.05, .3, y)); }
+
+vec4 sky(vec2 p){
+  vec3 c = skyCol(p);
+  float cl = smoothstep(.55, .85, fbm(vec2(p.x * 2.2 - uT * .006, p.y * 14.))) * smoothstep(.62, .7, p.y) * (1. - smoothstep(.86, .95, p.y));
+  c = mix(c, mix(uSkyMid, uLightCol, .55) + uRim * .15, cl * .45);
+  float ds = length(p - uSunPos);
+  c += uLightCol * uSunI * (exp(-ds * 7.) * .32 + exp(-ds * 26.) * .45);
+  c = mix(c, vec3(1., .99, .96), smoothstep(.052, .044, ds) * uSunI);
+  c += uLightCol * uSunI * smoothstep(.07, 0., ds) * .5;
+  c += uLightCol * uSunI * .07 * exp(-pow((ds - .24) / .014, 2.));
+  float dm = length(p - uMoonPos);
+  c += vec3(.75, .8, 1.) * uMoonI * exp(-dm * 9.) * .22;
+  c = mix(c, vec3(.93, .94, 1.) * (.82 + .18 * fbm((p - uMoonPos) * 60.)), smoothstep(.04, .035, dm) * uMoonI);
+  c += sparkles(p, uStars * (.6 + .4 * smoothstep(.55, .95, p.y)));
+  return vec4(c, 1);
+}
+
+vec4 dune(int L, vec2 p, float px){
+  float top = topOf(L, p.x);
+  float edge = top - p.y;
+  if (edge < 0.) {
+    if (L == 0 || edge < -.05) return vec4(0);
+    float w = fbm(vec2(p.x * 9. - uT * .35, (p.y - top) * 70. - uT * .2));
+    float a = smoothstep(.55, .9, w) * smoothstep(-.05, 0., edge) * (L == 2 ? .2 : .13);
+    return vec4(mix(uLit, uHaze, .4) * a, a);
+  }
+  float slope = (topOf(L, p.x + .01) - topOf(L, p.x - .01)) / .02;
+  float toward = clamp(-slope * clamp((uLightPos.x - p.x) * 3., -1., 1.) * 6., -1., 1.);
+  float depthIn = edge / .12;
+  float ridge = fbm(vec2(p.x * 1.6 + depthIn * 1.2, depthIn * 2.4 + float(L) * 5.));
+  float lee = smoothstep(.5, .56, ridge) * .8 + smoothstep(.56, .7, ridge) * .2;
+  float expo = 1. - smoothstep(0., .16, edge);
+  float light = uLightI * clamp(.42 + .4 * toward + .32 * expo - .28 * lee, 0., 1.);
+  vec3 c = mix(uShade, uLit, smoothstep(0., 1., light));
+  c += uLightCol * pow(light, 3.) * .28;
+  vec2 gq = floor(p * uRes / (1.6 * uMap.y));
+  c += uLightCol * step(.992, h21(gq + floor(uT * 2.5 + h21(gq) * 9.))) * light * .7 * (L == 2 ? 1. : .6);
+  float rip = sin(p.y * 1400. + sin(p.x * 22. + float(L)) * 10. + p.x * 90.);
+  c += (uLit - uShade) * .04 * rip * light * (L == 2 ? 1. : .5);
+  c += (h21(p * uRes) - .5) * .018;
+  float rim = exp(-edge * (L == 0 ? 380. : 480.)) * (.25 + 1.3 * exp(-abs(p.x - uLightPos.x) * 2.4)) * uLightI;
+  c += uRim * rim * .7;
+  float haze = (L == 0 ? .3 : L == 1 ? .12 : .03);
+  if (L < 2) { float nxt = topOf(L + 1, p.x); haze += .4 * (1. - smoothstep(nxt - .01, nxt + .07, p.y)); }
+  c = mix(c, uHaze, clamp(haze, 0., .9));
+  if (L == 2) {
+    float sw = swashY(p.x);
+    if (p.y < sw - .002) return vec4(0);   // below the waterline the sand belongs to the water view
+    float wet = smoothstep(shoreY(p.x) + .04, shoreY(p.x) + .002, p.y);
+    vec3 refl = skyCol(vec2(p.x, 1.25 - p.y));
+    c = mix(c, mix(uShade, refl, .45), wet * .55);
+    c += uLightCol * wet * .25 * exp(-abs(p.x - uLightPos.x) * 6.) * uLightI;
+    // the darker line the last wave left behind
+    c *= 1. - .12 * exp(-pow((p.y - shoreY(p.x) - .019) / .002, 2.));
+  }
+  float a = smoothstep(0., px * 1.5, edge);
+  return vec4(c * a, a);
+}
+
+// ripples from touches, bubbles and dropped sand, drawn into the water itself
+float ripples(vec2 p, float squash){
+  float r = 0.;
+  for (int i = 0; i < 10; i++) {
+    vec4 q = uRip[i]; if (q.w <= 0.) continue;
+    float age = uT - q.z; if (age < 0. || age > 4.) continue;
+    vec2 d = p - q.xy; d.y /= squash;
+    float dist = length(d), front = age * .075, width = .006 + age * .012;
+    float env = exp(-pow((dist - front) / width, 2.)) * exp(-age * 1.15) * q.w;
+    r += env * sin((dist - front) * 260.) + exp(-dist * 160.) * exp(-age * 9.) * q.w * .6;
+  }
+  return r;
+}
+
+vec4 water(vec2 p){
+  float sw = swashY(p.x), sh = shoreY(p.x);
+  if (p.y > sw + .003) return vec4(0);
+  float depth = clamp((sh - p.y) / SHEET, 0., 1.);          // 0 at the shore, 1 where the surface view ends
+  float persp = 1. / (max(sh - p.y, 0.) + .03);
+  vec2 wc = vec2(p.x * (2.2 + persp * .55), persp * .9);
+  float n = fbm(wc + vec2(uT * .05, -uT * .18)), n2 = fbm(wc * 2.1 + vec2(-uT * .07, -uT * .26));
+  float squash = mix(.12, .45, depth);
+  float rp = ripples(p, squash);
+  float rip = (n - .5) + (n2 - .5) * .6 + rp * .9;
+  // the swell: a crest rolls toward the shore and breaks
+  float u = wavePhase(p.x);
+  float cs = 1. - smoothstep(0., .45, u);
+  float cw = .05 + .09 * cs;
+  float crest = exp(-pow((depth - cs) / cw, 2.)) * smoothstep(0., .12, u) * (1. - smoothstep(.45, .5, u));
+  float trough = exp(-pow((depth - cs - cw * 1.3) / cw, 2.)) * smoothstep(0., .12, u) * (1. - smoothstep(.45, .5, u));
+  vec3 body = mix(uWaterA, mix(uWaterA, uWaterB, .6), depth);
+  vec3 refl = skyCol(vec2(p.x + rip * .03, sw + (sw - p.y) * 1.6 + rip * .02 + crest * .02));
+  float fres = mix(.72, .2, depth) + crest * .12;
+  vec3 c = mix(body, refl, clamp(fres, 0., 1.));
+  c += uLightCol * crest * .16 * (.4 + .6 * uLightI);
+  c *= 1. - trough * .08;
+  // light on the sand just under the surface
+  float ca = caustic(vec2(p.x * 2.3, p.y * 5.5) + rip * .15, uT * .35);
+  c += mix(uLightCol, vec3(1), .5) * clamp(ca, 0., 1.) * .3 * (.35 + .65 * uLightI) * smoothstep(.1, .6, depth);
+  // glitter on the light's path, broken up by ripples
+  float path = exp(-abs(p.x - uLightPos.x) * (3. + persp * .35));
+  float g = smoothstep(.72, .95, vn(wc * vec2(6., 3.) + vec2(uT * .4, -uT * 1.1) + rp * 2.));
+  c += uLightCol * g * path * 1.3 * uLightI;
+  c += uRim * .22 * smoothstep(-.4, .6, rip) * (1. - depth) * uLightI;
+  c += uLightCol * max(rp, 0.) * .18 * uLightI;
+  // foam: the breaking crest, the edge of the run-up, and lace left as it drains
+  float br = smoothstep(.36, .46, u) * (1. - smoothstep(.46, .52, u)) * crest;
+  float edgeF = smoothstep(.0035, 0., abs(p.y - sw + .0025)) * (.5 + .5 * vn(vec2(p.x * 80., uT * 2.)));
+  float lace = smoothstep(.02, 0., sw - p.y) * smoothstep(.55, .75, fbm(vec2(p.x * 40., (sw - p.y) * 200. + uT))) * smoothstep(.55, .7, u) * .55;
+  float foam = clamp(br * smoothstep(.45, .7, fbm(vec2(p.x * 30., depth * 20. - uT))) + edgeF * (.45 + .55 * smoothstep(.45, .6, u)) + lace, 0., 1.);
+  c = mix(c, vec3(1., .99, .97), foam * .85);
+  // the surface view fades out as it nears the camera, revealing the water beneath
+  float a = mix(.55, .82, smoothstep(0., .4, depth)) * (1. - smoothstep(.3, 1., depth) * .92) * (1. - smoothstep(.85, 1., depth));
+  a = max(max(a, foam * .9), clamp(abs(rp) * .55, 0., .5)) * smoothstep(sw + .003, sw - .001, p.y);
+  return vec4(c * a, a);
+}
+
+vec4 light(vec2 p){
+  vec2 to = uLightPos - p; float L = length(to);
+  float acc = 0.; float j = h21(p * uRes + uT);
+  for (int i = 0; i < 22; i++) { vec2 s = p + to * ((float(i) + j) / 22.); acc += step(topOf(0, s.x), s.y); }
+  acc /= 22.;
+  float streak = .45 + .55 * fbm(vec2(atan(to.y, to.x) * 14., uT * .03));
+  vec3 rays = uLightCol * acc * streak * exp(-L * 1.9) * uLightI * .5;
+  vec2 g = (p + vec2(uT * .006, sin(uT * .2) * .004)) * 70.; vec2 id = floor(g);
+  float m = step(.93, h21(id)) * exp(-length(fract(g) - .5) * 9.) * (.5 + .5 * sin(uT * 2. + h21(id + 2.) * 30.));
+  vec3 dust = uLightCol * m * acc * .9 * exp(-L * 1.2) * uLightI;
+  vec3 bloom = uLightCol * exp(-L * 4.5) * .22 * uLightI;
+  return vec4((rays + dust + bloom) * smoothstep(shoreY(p.x) - .01, shoreY(p.x) + .03, p.y), 1);
+}
+
+// underwater: the open water, the beach's sand running down out of sight, light shafts
+vec4 column(vec2 p){
+  float sh = shoreY(p.x), sw = swashY(p.x);
+  if (p.y > sw + .002) return vec4(0);
+  vec3 c = columnCol(p.y);
+  float below = max(sh - p.y, 0.);
+  vec3 sand = mix(uLit, uWaterA, .45) * (.85 + .15 * fbm(p * vec2(30., 90.)));
+  sand += mix(uLightCol, vec3(1), .5) * clamp(caustic(vec2(p.x * 2.3, p.y * 5.), uT * .35), 0., 1.) * .35 * (.4 + .6 * uLightI);
+  c = mix(c, sand, .8 * exp(-below * 3.4));
+  float slant = (uLightPos.x - A * .5) * .4, sx = p.x + (sh - p.y) * slant;
+  float shafts = smoothstep(.42, .82, fbm(vec2(sx * 6., uT * .07))) * exp(-below * 1.6) * (.6 + .4 * sin(sx * 34. + uT * .5));
+  c += mix(uLightCol, vec3(.8, 1., 1.), .5) * shafts * .28 * (.3 + .7 * uLightI);
+  c += vec3(1.) * exp(-abs(sh - .004 - p.y) * 420.) * .25;
+  c += sparkles(p + vec2(0., -uT * .004), .14 + .5 * uNight) * .6;
+  c *= .55 + .45 * max(uLightI, .35);
+  float a = smoothstep(sw + .002, sw - .003, p.y);
+  return vec4(c * a, a);
+}
+
+// a seabed band, painted the way the dunes are, then seen through the water
+vec4 seabed(int L, vec2 p, float px){
+  float top = topOf(L, p.x), edge = top - p.y;
+  if (edge < 0.) return vec4(0);
+  int k = L - 3;
+  float slope = (topOf(L, p.x + .01) - topOf(L, p.x - .01)) / .02;
+  float toward = clamp(-slope * clamp((uLightPos.x - p.x) * 3., -1., 1.) * 6., -1., 1.);
+  float depthIn = edge / .1;
+  float ridge = fbm(vec2(p.x * 1.6 + depthIn * 1.2, depthIn * 2.4 + float(L) * 5.));
+  float lee = smoothstep(.5, .56, ridge) * .8 + smoothstep(.56, .7, ridge) * .2;
+  float expo = 1. - smoothstep(0., .14, edge);
+  float light = clamp(.42 + .3 * toward + .34 * expo - .26 * lee, 0., 1.);
+  vec3 lit = mix(uLit, shallowCol(), .3), shade = mix(uShade, deepCol(), .45);
+  vec3 c = mix(shade, lit, smoothstep(0., 1., light));
+  c += mix(uLightCol, shallowCol(), .5) * pow(light, 3.) * .2;
+  float rip = sin(p.y * 1400. + sin(p.x * 22. + float(L)) * 10. + p.x * 90.);
+  c += (lit - shade) * .035 * rip * light;
+  c += (h21(p * uRes) - .5) * .014;
+  // soft dancing light near the top of each band
+  float ca = caustic(vec2(p.x * 2.1, p.y * 7.) + .2 * fbm(p * 3. + uT * .1), uT * .33);
+  c += mix(uLightCol, vec3(1), .55) * clamp(ca, 0., 1.) * .14 * expo * (.4 + .6 * uLightI);
+  c += mix(uRim, shallowCol(), .5) * exp(-edge * 420.) * .25;
+  float haze = (k == 0 ? .42 : k == 1 ? .22 : .06);
+  if (k < 2) { float nxt = topOf(L + 1, p.x); haze += .35 * (1. - smoothstep(nxt - .01, nxt + .07, p.y)); }
+  c = mix(c, columnCol(p.y), clamp(haze, 0., .85));
+  c *= .55 + .45 * max(uLightI, .35);
+  float a = smoothstep(0., px * 1.5, edge);
+  return vec4(c * a, a);
+}
+// drifting specks and faint shafts in front of the reef
+vec4 overlay(vec2 p){
+  float sh = shoreY(p.x);
+  vec2 g = (p + vec2(uT * .004, uT * .008)) * 55.; vec2 id = floor(g);
+  float m = step(.9, h21(id)) * exp(-length(fract(g) - .5 - (vec2(h21(id + 1.), h21(id + 2.)) - .5) * .5) * 14.) * (.6 + .4 * sin(uT + h21(id) * 20.));
+  float slant = (uLightPos.x - A * .5) * .4, sx = p.x + (sh - p.y) * slant;
+  float shafts = smoothstep(.55, .85, fbm(vec2(sx * 4., uT * .05 + 9.))) * exp(-max(sh - p.y, 0.) * 1.2) * .07;
+  vec3 c = (vec3(.85, .97, 1.) * m * .35 + mix(uLightCol, vec3(.8, 1., 1.), .5) * shafts) * (.4 + .6 * uLightI) * step(p.y, sh);
+  return vec4(c, 0);
+}
+
+void main(){
+  vec2 p = vec2(vUv.x * uMap.x + uMap.z, vUv.y * uMap.y + uMap.w);
+  float px = uMap.y / uRes.y;
+  if (uPart == 0) o = sky(p);
+  else if (uPart <= 3) o = dune(uPart - 1, p, px);
+  else if (uPart == 4) o = water(p);
+  else if (uPart == 5) o = light(p);
+  else if (uPart == 6) o = column(p);
+  else if (uPart <= 9) o = seabed(uPart - 4, p, px);
+  else o = overlay(p);
+}`;
+
+  /* sprites: Blender-rendered coral, kelp and fish, bent and lit in the water */
+  var SVERT = `#version 300 es
+in vec2 a; uniform vec4 uMap; uniform vec4 uRect; uniform vec4 uUV; uniform float uBend, uFlip;
+out vec2 vUv; out vec2 vP;
+void main(){
+  float bend = uBend * pow(a.y, 1.6);
+  vec2 p = vec2(uRect.x + (a.x - .5) * uRect.z + bend, uRect.y + a.y * uRect.w);
+  float ux = uFlip > .5 ? 1. - a.x : a.x;
+  vUv = vec2(mix(uUV.x, uUV.z, ux), mix(uUV.w, uUV.y, a.y)); vP = p;
+  gl_Position = vec4((p.x - uMap.z) / uMap.x * 2. - 1., (p.y - uMap.w) / uMap.y * 2. - 1., 0., 1.);
+}`;
+  var SFRAG = "#version 300 es\nprecision highp float;\n" + `
+in vec2 vUv; in vec2 vP; out vec4 o;
+uniform sampler2D uTex; uniform float uFog, uT, uLightI, uDark, uLOff; uniform vec3 uWaterA, uWaterB, uLightCol, uLit, uShade;
+float caustic(vec2 uv, float t){
+  vec2 p = mod(uv * 6.28318, 6.28318) - 250.; vec2 i = p; float c = 1.; float inten = .005;
+  for (int n = 0; n < 4; n++) { float tt = t * (1. - (3.5 / float(n + 1))); i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x)); c += 1. / length(vec2(p.x / (sin(i.x + tt) / inten), p.y / (cos(i.y + tt) / inten))); }
+  c /= 4.; c = 1.17 - pow(c, 1.4); return pow(abs(c), 8.);
+}
+void main(){
+  vec4 t = texture(uTex, vUv);
+  if (t.a < .003) discard;
+  vec4 lt = texture(uTex, vUv + vec2(uLOff, 0.));
+  vec3 alb = t.rgb / t.a; float L = smoothstep(.08, .95, lt.r / max(lt.a, .001));
+  vec3 shallow = mix(uWaterA, vec3(1.), .18), deep = mix(uWaterB, vec3(.07, .05, .24), .55);
+  vec3 water = mix(deep, shallow, smoothstep(-1.05, .3, vP.y));
+  // the same light and shadow colours as the sand, so everything is painted alike
+  vec3 shadowTint = mix(uShade / max(max(uShade.r, uShade.g), uShade.b), deep, .35) * .62;
+  vec3 lightTint = mix(vec3(1.), uLightCol, .35) * 1.06;
+  vec3 col = alb * mix(shadowTint, lightTint, L);
+  col += pow(L, 6.) * mix(uLightCol, shallow, .5) * .18;
+  col += mix(uLightCol, vec3(1), .5) * clamp(caustic(vec2(vP.x * 2.1, vP.y * 7.), uT * .33), 0., 1.) * .12 * L * (.4 + .6 * uLightI);
+  col = mix(col, water, uFog);
+  col *= mix(1., .55 + .45 * max(uLightI, .35), uDark);
+  o = vec4(col * t.a, t.a);
+}`;
+
+  /* ── time of day: surreal at every hour ── */
+  function hex(h) { var n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+  var NIGHT = { skyTop: "#0c0b33", skyMid: "#2f2369", skyHor: "#7a5aa8", lightCol: "#cfd8ff", lit: "#8e88cf", shade: "#3b3572", haze: "#6c5ca6", rim: "#bfc9ff", waterA: "#47b8cc", waterB: "#1d2a70", stars: 1.0 };
+  var DAWN = { skyTop: "#a4d2f3", skyMid: "#d8d2f0", skyHor: "#f8c4d3", lightCol: "#fff0e4", lit: "#f6d3c6", shade: "#a99cd3", haze: "#f2d6e8", rim: "#fff3ea", waterA: "#a3e8e6", waterB: "#6ca8e2", stars: .6 };
+  var DAY = { skyTop: "#7cc5f3", skyMid: "#bfe5f8", skyHor: "#f8ead6", lightCol: "#fff8ec", lit: "#f6daaa", shade: "#b4a3d8", haze: "#e8eef9", rim: "#fffcf2", waterA: "#86f0e2", waterB: "#31a5d8", stars: .28 };
+  var GOLD = { skyTop: "#8ea6ea", skyMid: "#f1b8c8", skyHor: "#ffca92", lightCol: "#ffd8a0", lit: "#ffc690", shade: "#a27fc2", haze: "#ffd3bc", rim: "#fff0c6", waterA: "#90e2d9", waterB: "#5a7ed8", stars: .38 };
+  var DUSK = { skyTop: "#3a3990", skyMid: "#b06aaa", skyHor: "#ff9f8c", lightCol: "#ffb58c", lit: "#e69ba8", shade: "#6a4f9a", haze: "#d891b2", rim: "#ffd2b2", waterA: "#70c6d2", waterB: "#3a4a9c", stars: .7 };
+  var KEYS = [[0, NIGHT], [4.6, NIGHT], [6.1, DAWN], [8.6, DAY], [15.6, DAY], [17.7, GOLD], [19.5, DUSK], [21.1, NIGHT], [24, NIGHT]];
+  function palette(h) {
+    for (var k = 0; k < KEYS.length - 1; k++) if (h >= KEYS[k][0] && h <= KEYS[k + 1][0]) break;
+    var a = KEYS[k], b = KEYS[k + 1], t = (h - a[0]) / (b[0] - a[0] || 1); t = t * t * (3 - 2 * t);
+    var out = {};
+    Object.keys(a[1]).forEach(function (key) { var x = a[1][key], y = b[1][key]; if (typeof x === "number") out[key] = x + (y - x) * t; else { var p = hex(x), q = hex(y); out[key] = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t]; } });
+    return out;
+  }
+  function lights(h) {
+    var dayF = (h - 5.9) / (19.7 - 5.9);
+    var sunI = dayF > 0 && dayF < 1 ? Math.min(1, Math.sin(Math.PI * dayF) * 3) : 0;
+    var sun = [A * (.12 + .76 * Math.min(1, Math.max(0, dayF))), .5 + Math.sin(Math.PI * Math.min(1, Math.max(0, dayF))) * .34];
+    var nf = ((h - 19.2 + 24) % 24) / (24 - 19.2 + 6.4);
+    var moonI = nf > 0 && nf < 1 ? Math.min(1, Math.sin(Math.PI * nf) * 3) * (1 - sunI * .8) : 0;
+    var moon = [A * (.86 - .72 * Math.min(1, Math.max(0, nf))), .54 + Math.sin(Math.PI * Math.min(1, Math.max(0, nf))) * .3];
+    var useSun = sunI >= moonI;
+    return { sun: sun, sunI: sunI, moon: moon, moonI: moonI, pos: useSun ? sun : moon, li: useSun ? sunI : moonI * .55, night: 1 - sunI };
+  }
+
+  /* ── WebGL ── */
+  function compile(gl, vs, fs) {
+    function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+    var pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    var U = {}, n = gl.getProgramParameter(pr, gl.ACTIVE_UNIFORMS);
+    for (var i = 0; i < n; i++) { var info = gl.getActiveUniform(pr, i), nm = info.name.replace(/\[0\]$/, ""); U[nm] = gl.getUniformLocation(pr, info.name); }
+    return { pr: pr, U: U };
+  }
+  var UNI3 = [["uSkyTop", "skyTop"], ["uSkyMid", "skyMid"], ["uSkyHor", "skyHor"], ["uLightCol", "lightCol"], ["uLit", "lit"], ["uShade", "shade"], ["uHaze", "haze"], ["uRim", "rim"], ["uWaterA", "waterA"], ["uWaterB", "waterB"]];
+  var PARTS = { sky: 0, far: 1, mid: 2, near: 3, water: 4, light: 5 };
+  var SCALE = { sky: .8, far: 1, mid: 1, near: 1, water: .9, light: .5, deep: .85 };
+  var views = [], deepV = null;
+  function makeCtx(id) {
+    var cv = $(id), gl = cv.getContext("webgl2", { premultipliedAlpha: true, antialias: false, alpha: id !== "sky" && id !== "light" });
+    if (!gl) throw new Error("no webgl2");
+    var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    var P = compile(gl, VERT, FRAG); gl.useProgram(P.pr);
+    var loc = gl.getAttribLocation(P.pr, "a"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    return { id: id, cv: cv, gl: gl, P: P, quad: buf, scale: SCALE[id] };
+  }
+  function setScene(gl, U, t, P, Lh, w, h) {
+    gl.uniform2f(U.uRes, w, h); gl.uniform1f(U.uT, t); gl.uniform4f(U.uMap, map[0], map[1], map[2], oy);
+    UNI3.forEach(function (u) { if (U[u[0]]) gl.uniform3fv(U[u[0]], P[u[1]]); });
+    if (U.uLightPos) { gl.uniform2f(U.uLightPos, Lh.pos[0], Lh.pos[1]); gl.uniform2f(U.uSunPos, Lh.sun[0], Lh.sun[1]); gl.uniform2f(U.uMoonPos, Lh.moon[0], Lh.moon[1]); gl.uniform1f(U.uSunI, Lh.sunI); gl.uniform1f(U.uMoonI, Lh.moonI); gl.uniform1f(U.uStars, P.stars); gl.uniform1f(U.uNight, Lh.night); }
+    if (U.uLightI) gl.uniform1f(U.uLightI, Lh.li);
+    if (U.uRip) gl.uniform4fv(U.uRip, ripBuf);
+  }
+  // only shade the part of the screen a canvas can cover
+  function band(gl, cv, y0, y1) { // y0 > y1 in design units, returns false if off screen
+    var s0 = toScreen(0, y0)[1], s1 = toScreen(0, y1)[1], H = innerHeight;
+    s0 = Math.max(0, s0); s1 = Math.min(H, s1);
+    gl.viewport(0, 0, cv.width, cv.height); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (s1 <= s0) return false;
+    var k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.floor((H - s1) * k), cv.width, Math.ceil((s1 - s0) * k) + 1); return true;
+  }
+
+  /* ── sprites ── */
+  var SPR = {}, sprProg = null, stripBuf = null, STRIP_N = 0;
+  var SPRITE_FILES = ["stag-pink", "stag-lilac", "brain-yellow", "brain-lilac", "fan-pink", "fan-lilac", "tubes-mint", "tubes-peach", "table-sky", "rock-a", "rock-b", "kelp-a", "kelp-b", "grass", "fish-angel", "fish-tetra"];
+  function loadSprites(gl) {
+    sprProg = compile(gl, SVERT, SFRAG);
+    var v = []; for (var i = 0; i <= 24; i++) { var y = i / 24; v.push(0, y, 1, y); } STRIP_N = v.length / 2;
+    stripBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, stripBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    SPRITE_FILES.forEach(function (name) {
+      var img = new Image(); img.onload = function () {
+        var tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        SPR[name] = { tex: tex, ar: img.naturalWidth / img.naturalHeight }; if (still) redraw();
+      };
+      img.src = "reef/" + name + ".png";
+    });
+  }
+
+  /* the reef layout: what stands on each seabed band (band 3 is the back) */
+  function rnd(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+  var REEF = [];
+  (function () {
+    var r = rnd(42), CORALS = ["stag-pink", "stag-lilac", "brain-yellow", "brain-lilac", "fan-pink", "fan-lilac", "tubes-mint", "tubes-peach"];
+    function kindOf(n) { return n === "grass" ? "grass" : n.indexOf("rock") === 0 ? "rock" : n.indexOf("kelp") === 0 ? "kelp" : n.indexOf("fan") === 0 ? "fan" : "coral"; }
+    function put(name, band, x, h) { REEF.push({ name: name, band: band, x: x, h: h, flip: r() < .5, kind: kindOf(name), th: 0, w: 0, ph: r() * 9 }); }
+    function pick(k) { return k < .22 ? "grass" : k < .32 ? (r() < .5 ? "rock-a" : "rock-b") : CORALS[Math.floor(r() * CORALS.length)]; }
+    // back band: small and hazy
+    for (var x = -.05; x < A + .05; x += .05 + r() * .05) put(pick(r()), 3, x, .035 + r() * .035);
+    for (var i = 0; i < 8; i++) put(r() < .5 ? "kelp-a" : "kelp-b", 3, r() * A, .2 + r() * .14);
+    // middle band
+    for (x = 0; x < A; x += .08 + r() * .08) { if (x > 1.2 && x < 1.56) continue; put(pick(r()), 4, x, .06 + r() * .05); }
+    for (i = 0; i < 6; i++) { var kx = r() * A; if (kx > 1.15 && kx < 1.6) kx -= .5; put(r() < .5 ? "kelp-a" : "kelp-b", 4, kx, .3 + r() * .14); }
+    put("table-sky", 4, .86, .09);
+    // front band: the big pieces, with a clearing on the right for Morel
+    [[.03, "fan-lilac", .2], [.15, "stag-pink", .15], [.27, "brain-yellow", .09], [.38, "grass", .08], [.5, "rock-a", .07], [.6, "tubes-peach", .16], [.72, "fan-pink", .22], [.84, "grass", .09], [.95, "brain-lilac", .1], [1.06, "stag-lilac", .14], [1.14, "grass", .07],
+     [1.64, "rock-b", .08], [1.71, "stag-pink", .17], [1.8, "tubes-mint", .15], [1.88, "fan-lilac", .18]].forEach(function (c) { put(c[1], 5, c[0], c[2]); });
+    [.1, .45, .99, 1.92].forEach(function (kx) { put(r() < .5 ? "kelp-a" : "kelp-b", 5, kx, .42 + r() * .16); });
+  })();
+
+  /* fish: schools that drift, turn, and scatter from the cursor */
+  var FISH = [];
+  (function () {
+    var r = rnd(5);
+    [{ kind: "fish-angel", n: 6, y: -.18, z: .7, s: .05 }, { kind: "fish-tetra", n: 14, y: -.05, z: .5, s: .042 }, { kind: "fish-tetra", n: 10, y: -.38, z: .3, s: .04 }, { kind: "fish-angel", n: 4, y: -.55, z: .9, s: .06 }].forEach(function (sc, si) {
+      for (var i = 0; i < sc.n; i++) FISH.push({ kind: sc.kind, school: si, x: r() * A, y: sc.y + (r() - .5) * .1, z: Math.min(1, Math.max(0, sc.z + (r() - .5) * .2)), vx: (r() < .5 ? -1 : 1) * .04, vy: 0, size: sc.s * (.85 + r() * .3), yaw: 0, wag: r() * 6, home: sc.y, off: [(r() - .5) * .14, (r() - .5) * .06], scared: 0 });
+    });
+  })();
+  var schoolT = [0, 0, 0, 0];
+
+  /* ── view: the page scrolls, the scene follows ── */
+  var map = [A, 1, 0, 0], oy0 = 0, oy = 0, scrollMax = 1, DPR = 1;
+  function resize() {
+    var w = innerWidth, h = innerHeight, s = w / h; DPR = Math.min(devicePixelRatio || 1, 1.5);
+    if (s >= A) { var sy = A / s; map = [A, sy, 0, (1 - sy) * .3]; } else { map = [s, 1, (A - s) / 2, 0]; }
+    oy0 = map[3];
+    var range = oy0 + map[1] - (BOTTOM + map[1]); scrollMax = Math.round((oy0 - BOTTOM) / map[1] * h);
+    $("spacer").style.height = (h + scrollMax) + "px";
+    views.concat(deepV ? [deepV] : []).forEach(function (v) { v.cv.width = Math.round(w * DPR * v.scale); v.cv.height = Math.round(h * DPR * v.scale); });
+    ["birds", "fx0", "fx1", "fx2", "fxTop"].forEach(function (id) { var c = $(id); c.width = Math.round(w * DPR); c.height = Math.round(h * DPR); });
+    readScroll();
+  }
+  function readScroll() { var y = Math.max(0, Math.min(scrollMax, scrollY)); oy = oy0 - y / innerHeight * map[1]; }
+  function toScreen(x, y) { return [(x - map[2]) / map[0] * innerWidth, (1 - (y - oy) / map[1]) * innerHeight]; }
+  function toDesign(sx, sy) { return [sx / innerWidth * map[0] + map[2], (1 - sy / innerHeight) * map[1] + oy]; }
+
+  var live = true, previewHour = 12, qs = new URLSearchParams(location.search);
+  function hourNow() { if (!live) return previewHour; var d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; }
+  var t0 = performance.now(), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (qs.has("hour")) { live = false; previewHour = parseFloat(qs.get("hour")); }
+  if (qs.has("t")) t0 = performance.now() - parseFloat(qs.get("t")) * 1000;
+  if (qs.has("still")) still = true;
+  function clock() { return still ? (qs.has("t") ? parseFloat(qs.get("t")) : 20) : (performance.now() - t0) / 1000; }
+  function fmt(h) { var m = Math.floor((h % 1) * 60); return String(Math.floor(h) % 24).padStart(2, "0") + ":" + String(m).padStart(2, "0"); }
+
+  var T = 0, PAL = null, LH = null, lastNow = 0, mouse = { x: -999, y: -999, vx: 0, vy: 0, on: false };
+  var queued = false;
+  function redraw() { if (queued) return; queued = true; requestAnimationFrame(function (n) { queued = false; frame(n); }); }
+  function frame(now) {
+    var dt = Math.min(.05, lastNow ? (now - lastNow) / 1000 : .016); lastNow = now;
+    var t = clock(), h = hourNow(), P = palette(h), Lh = lights(h); T = t; PAL = P; LH = Lh;
+    readScroll(); underwater(now, dt);
+    var top = oy + map[1], shoreHi = .35, shoreLo = .27;
+    views.forEach(function (v) {
+      var gl = v.gl, U = v.P.U, ok;
+      if (v.id === "water") ok = band(gl, v.cv, shoreHi, shoreLo - SHEET);
+      else ok = band(gl, v.cv, top + .01, shoreLo - .01);
+      if (!ok) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, v.quad); setScene(gl, U, t, P, Lh, v.cv.width, v.cv.height); gl.uniform1i(U.uPart, PARTS[v.id]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    });
+    stepReef(dt, t); stepFish(dt, t);
+    drawDeep(t, P, Lh);
+    placeTitan(t); lightPieces(P, Lh); updateCast(t, dt, P, Lh); updateCast3(t, dt, P, Lh); stepHover();
+    drawBirds(t, P, Lh); drawFx(dt, t); setDial(h); placeBeacons();
+    $("cue").classList.toggle("gone", scrollY > 40);
+    mouse.vx *= .8; mouse.vy *= .8;
+    if (!still) requestAnimationFrame(frame);
+  }
+
+  /* the underwater pass: open water, then each seabed band with what stands on it */
+  function drawDeep(t, P, Lh) {
+    var v = deepV, gl = v.gl;
+    if (!band(gl, v.cv, .36, BOTTOM - .05)) return;
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    var F = v.P, U = F.U;
+    function full(part) { gl.useProgram(F.pr); gl.bindBuffer(gl.ARRAY_BUFFER, v.quad); var loc = gl.getAttribLocation(F.pr, "a"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0); setScene(gl, U, t, P, Lh, v.cv.width, v.cv.height); gl.uniform1i(U.uPart, part); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+    full(6);
+    for (var b = 3; b <= 5; b++) { full(4 + b); drawSprites(gl, b, t, P, Lh); }
+    gl.blendFunc(gl.ONE, gl.ONE); full(10); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+  function drawSprites(gl, b, t, P, Lh) {
+    if (!sprProg) return; var S = sprProg, U = S.U;
+    gl.useProgram(S.pr); gl.bindBuffer(gl.ARRAY_BUFFER, stripBuf); var loc = gl.getAttribLocation(S.pr, "a"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform4f(U.uMap, map[0], map[1], map[2], oy); gl.uniform1f(U.uT, t); gl.uniform1f(U.uLightI, Lh.li); gl.uniform1f(U.uDark, 1);
+    gl.uniform3fv(U.uWaterA, P.waterA); gl.uniform3fv(U.uWaterB, P.waterB); gl.uniform3fv(U.uLightCol, P.lightCol); gl.uniform3fv(U.uLit, P.lit); gl.uniform3fv(U.uShade, P.shade); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTex, 0);
+    var fogBase = b === 3 ? .5 : b === 4 ? .26 : .05, viewTop = oy + map[1] + .1, viewBot = oy - .1;
+    REEF.forEach(function (it) {
+      if (it.band !== b) return; var s = SPR[it.name]; if (!s) return;
+      var w = it.h * s.ar * .5, y = bandTop(b, it.x) - it.h * .04;
+      if (y > viewTop || y + it.h < viewBot) return;
+      gl.bindTexture(gl.TEXTURE_2D, s.tex);
+      gl.uniform4f(U.uRect, it.x, y, w, it.h); gl.uniform4f(U.uUV, 0, 0, .5, 1); gl.uniform1f(U.uLOff, .5); gl.uniform1f(U.uBend, it.th); gl.uniform1f(U.uFlip, it.flip ? 1 : 0); gl.uniform1f(U.uFog, fogBase);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, STRIP_N);
+    });
+    FISH.forEach(function (f) {
+      var layer = f.z < .34 ? 3 : f.z < .67 ? 4 : 5; if (layer !== b) return; var s = SPR[f.kind]; if (!s) return;
+      if (f.y > viewTop || f.y < viewBot) return;
+      var col = Math.max(0, Math.min(6, Math.round(f.yaw / 30))), row = Math.floor(f.wag) % 6, cw = 1 / 14, rh = 1 / 6;
+      var sz = f.size * (.75 + f.z * .5);
+      gl.bindTexture(gl.TEXTURE_2D, s.tex);
+      gl.uniform4f(U.uRect, f.x, f.y - sz / 2, sz, sz); gl.uniform4f(U.uUV, 2 * col * cw, row * rh, (2 * col + 1) * cw, (row + 1) * rh); gl.uniform1f(U.uLOff, cw); gl.uniform1f(U.uBend, 0); gl.uniform1f(U.uFlip, 0); gl.uniform1f(U.uFog, (1 - f.z) * .4);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, STRIP_N);
+    });
+  }
+  /* kelp, grass and fans sway with the water and lean away from the cursor */
+  function stepReef(dt, t) {
+    var m = toDesign(mouse.x, mouse.y), mvx = mouse.vx / innerWidth * map[0] / Math.max(dt, .001);
+    REEF.forEach(function (it) {
+      if (it.kind === "coral" || it.kind === "rock") return;
+      var flex = it.kind === "kelp" ? 1 : it.kind === "grass" ? .55 : .25;
+      var base = bandTop(it.band, it.x), target = Math.sin(t * .7 + it.ph) * it.h * .07 * flex + Math.sin(t * 1.9 + it.ph * 2) * it.h * .015 * flex;
+      var force = 0;
+      if (mouse.on && m[1] > base - .02 && m[1] < base + it.h * 1.05) {
+        var dx = it.x + it.th * .6 - m[0], R = .08 + it.h * .15, d = Math.abs(dx);
+        if (d < R) force = ((dx >= 0 ? 1 : -1) * 1.2 + mvx * 2.5) * (1 - d / R) * flex;
+      }
+      it.w += ((target - it.th) * 6 + force) * dt - it.w * 2.2 * dt; it.th += it.w * dt;
+      var lim = it.h * .45 * flex; if (it.th > lim) { it.th = lim; it.w *= -.3; } if (it.th < -lim) { it.th = -lim; it.w *= -.3; }
+    });
+  }
+  function stepFish(dt, t) {
+    var m = toDesign(mouse.x, mouse.y);
+    for (var i = 0; i < 4; i++) schoolT[i] += dt;
+    FISH.forEach(function (f) {
+      var st = schoolT[f.school], cx = A / 2 + Math.sin(st * .045 + f.school * 2) * A * .55, cy = f.home + Math.sin(st * .11 + f.school) * .05;
+      var ax = (cx + f.off[0] - f.x) * .25, ay = (cy + f.off[1] - f.y) * .5;
+      var dx = f.x - m[0], dy = f.y - m[1], d = Math.hypot(dx, dy * 1.2);
+      if (mouse.on && d < .2) { var k = (1 - d / .2) * 3.2; ax += dx / (d + .01) * k; ay += dy / (d + .01) * k * .8; f.scared = 1; }
+      f.scared = Math.max(0, f.scared - dt * .7);
+      f.vx += ax * dt; f.vy += ay * dt;
+      var sp = Math.hypot(f.vx, f.vy), max = .07 + f.scared * .32;
+      if (sp > max) { f.vx *= max / sp; f.vy *= max / sp; }
+      f.vx *= 1 - dt * .3; f.vy *= 1 - dt * 1.2;
+      f.x += f.vx * dt; f.y += f.vy * dt;
+      var floor = bandTop(3, f.x) + .04, ceil = shoreY(f.x) - .05;
+      if (f.y < floor) { f.y = floor; f.vy = Math.abs(f.vy); } if (f.y > ceil) { f.y = ceil; f.vy = -Math.abs(f.vy); }
+      if (f.x < -.2) f.x = A + .15; if (f.x > A + .2) f.x = -.15;
+      // the body turns through a three-quarter view toward the direction of travel
+      var want = f.vx >= 0 ? 0 : 180; f.yaw += Math.max(-dt * 260, Math.min(dt * 260, want - f.yaw));
+      f.wag = (f.wag + dt * (6 + Math.hypot(f.vx, f.vy) * 120)) % 6;
+    });
+  }
+
+  /* ── birds ── */
+  var birdsCv = $("birds"), bctx = birdsCv.getContext("2d");
+  var BIRDS = [0, 1, 2, 3, 4].map(function () { return { x: Math.random() * A, y: .7 + Math.random() * .2, v: .008 + Math.random() * .006, s: .6 + Math.random() * .6, ph: Math.random() * 6 }; });
+  function drawBirds(t, P, Lh) {
+    var c = bctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, birdsCv.width, birdsCv.height); if (oy + map[1] < .45) return;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    var col = P.shade; c.strokeStyle = "rgba(" + Math.round(col[0] * 120) + "," + Math.round(col[1] * 110) + "," + Math.round(col[2] * 160) + "," + (.55 + .25 * Lh.night) + ")"; c.lineCap = "round";
+    BIRDS.forEach(function (b) {
+      var x = ((b.x + t * b.v) % (A + .3)) - .15, y = b.y + Math.sin(t * .3 + b.ph) * .012, sp = toScreen(x, y), sz = 9 * b.s * innerWidth / 1280, flap = Math.sin(t * 5.5 + b.ph * 3) * .6;
+      c.lineWidth = Math.max(1, sz * .16); c.beginPath(); c.moveTo(sp[0] - sz, sp[1] - sz * flap * .7); c.quadraticCurveTo(sp[0] - sz * .45, sp[1] - sz * (.15 + flap * .3), sp[0], sp[1]); c.quadraticCurveTo(sp[0] + sz * .45, sp[1] - sz * (.15 + flap * .3), sp[0] + sz, sp[1] - sz * flap * .7); c.stroke();
+    });
+  }
+
+  /* ── characters ── */
+  // A character is one or more cut-out pieces. Each piece is placed in design space, sits in a layer
+  // between the dunes, takes the scene's light, and is hit-tested against its own outline.
+  var CHARS = [], hoverChar = null, hoverSince = 0, tagShown = null;
+  function piece(src, layerId, opts) {
+    var el = document.createElement("div"); el.className = "piece";
+    el.innerHTML = '<img alt="" src="' + src + '"><i class="tint"></i><i class="haze"></i>';
+    el.querySelectorAll("i").forEach(function (m) { m.style.webkitMaskImage = m.style.maskImage = "url(" + src + ")"; });
+    $(layerId).appendChild(el);
+    var pc = Object.assign({ el: el, src: src, w: 0, h: 0, alpha: null, m: [1, 0, 0, 1, 0, 0] }, opts);
+    var img = el.querySelector("img");
+    img.onload = function () {
+      pc.w = img.naturalWidth; pc.h = img.naturalHeight; el.style.width = pc.w + "px"; el.style.height = pc.h + "px";
+      var cv = document.createElement("canvas"); cv.width = pc.w; cv.height = pc.h; var cx = cv.getContext("2d"); cx.drawImage(img, 0, 0);
+      try { pc.alpha = cx.getImageData(0, 0, pc.w, pc.h).data; } catch (e) { pc.alpha = null; }
+    };
+    return pc;
+  }
+  function setMatrix(pc, a, b, c, d, e, f) { pc.m = [a, b, c, d, e, f]; pc.el.style.transform = "matrix(" + [a, b, c, d, e, f].map(function (v) { return v.toFixed(4); }).join(",") + ")"; }
+  function hitPiece(pc, sx, sy) {
+    if (!pc.alpha) return false; var m = pc.m, det = m[0] * m[3] - m[1] * m[2]; if (!det) return false;
+    var x = sx - m[4], y = sy - m[5], lx = (m[3] * x - m[2] * y) / det, ly = (-m[1] * x + m[0] * y) / det;
+    if (lx < 0 || ly < 0 || lx >= pc.w || ly >= pc.h) return false;
+    return pc.alpha[((ly | 0) * pc.w + (lx | 0)) * 4 + 3] > 90;
+  }
+  function charAt(sx, sy) {
+    for (var i = CHARS.length - 1; i >= 0; i--) {
+      var ch = CHARS[i];
+      for (var j = 0; j < ch.pieces.length; j++) {
+        var pc = ch.pieces[j];
+        if (pc.behindBand != null) { var d = toDesign(sx, sy); if (d[1] <= bandTop(pc.behindBand, d[0])) continue; }
+        if (hitPiece(pc, sx, sy)) return ch;
+      }
+    }
+    return null;
+  }
+  function lightPieces(P, Lh) {
+    var li = Lh.li, sh = P.shade, mx = Math.max(sh[0], sh[1], sh[2]) || 1;
+    function c3(v) { return "rgb(" + v.map(function (x) { return Math.round(Math.max(0, Math.min(1, x)) * 255); }).join(",") + ")"; }
+    var lit = P.lit, lm = Math.max(lit[0], lit[1], lit[2]) || 1, k = Math.min(1, Math.max(0, 1 - li * 1.1));
+    var tint = [0, 1, 2].map(function (i) { var day = .55 + .45 * (lit[i] / lm) * .6 + .45 * .4 * P.lightCol[i], night = sh[i] * 1.55; return day * (1 - k) + night * k; });
+    CHARS.forEach(function (ch) { ch.pieces.forEach(function (pc) {
+      if (pc.gl) return;
+      var tEl = pc.el.children[1], hEl = pc.el.children[2];
+      tEl.style.background = c3(tint); hEl.style.background = c3(P.haze); hEl.style.opacity = ((pc.haze || 0) + .12 * (1 - li)).toFixed(3);
+    }); });
+  }
+  // the label: a photo of the fandom and its name, assembling out of pixels
+  var tag = $("tag"), tagCv = $("tagCv"), photos = {};
+  function showTag(ch) {
+    tagShown = ch; $("tagText").textContent = ch.fandom + ", " + ch.name;
+    var D = Math.min(devicePixelRatio || 1, 2), icon = 40, gap = 12, font = "600 15px Inter, system-ui, sans-serif";
+    var mc = document.createElement("canvas").getContext("2d"); mc.font = font; var tw = Math.ceil(mc.measureText(ch.fandom).width);
+    var W = icon + gap + tw, H = icon; tagCv.width = W * D; tagCv.height = H * D; tagCv.style.width = W + "px"; tagCv.style.height = H + "px";
+    var fin = document.createElement("canvas"); fin.width = W * D; fin.height = H * D; var f = fin.getContext("2d"); f.scale(D, D);
+    var ph = photos[ch.photo]; if (ph && ph.complete) { f.save(); f.beginPath(); f.roundRect ? f.roundRect(0, 0, icon, icon, 8) : f.rect(0, 0, icon, icon); f.clip(); f.drawImage(ph, 0, 0, icon, icon); f.restore(); }
+    f.font = font; f.fillStyle = "#f3f2f7"; f.textBaseline = "middle"; f.fillText(ch.fandom, icon + gap, H / 2 + 1);
+    var data = f.getImageData(0, 0, fin.width, fin.height).data, ctx = tagCv.getContext("2d"), start = performance.now(), dur = still ? 1 : 700;
+    var s = toScreen(ch.tagAt[0], ch.tagAt[1]); tag.style.transform = ""; tag.style.left = Math.round(ch.tagSide < 0 ? s[0] - W - 22 : s[0]) + "px"; tag.style.top = Math.round(s[1] - H / 2 - 7) + "px";
+    tag.classList.add("on"); sfx.tick && sfx.tick();
+    (function step(now) {
+      if (tagShown !== ch) return;
+      var p = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - p, 3), b = Math.max(1, Math.round((14 - 13 * e) * D));
+      ctx.clearRect(0, 0, tagCv.width, tagCv.height);
+      if (p >= 1) { ctx.drawImage(fin, 0, 0); return; }
+      for (var by = 0; by < fin.height; by += b) for (var bx = 0; bx < fin.width; bx += b) {
+        var hsh = ((bx * 73856093) ^ (by * 19349663)) >>> 0, r = (hsh % 1000) / 1000; if (r > p * 1.35) continue;
+        var cx = Math.min(fin.width - 1, bx + (b >> 1)), cy = Math.min(fin.height - 1, by + (b >> 1)), o = (cy * fin.width + cx) * 4;
+        if (data[o + 3] < 20) continue;
+        ctx.fillStyle = "rgba(" + data[o] + "," + data[o + 1] + "," + data[o + 2] + "," + (data[o + 3] / 255) + ")"; ctx.fillRect(bx, by, b, b);
+      }
+      requestAnimationFrame(step);
+    })(start);
+  }
+  function hideTag() { tagShown = null; tag.classList.remove("on"); }
+  function setHover(ch) {
+    if (ch === hoverChar) return;
+    if (hoverChar) hoverChar.pieces.forEach(function (pc) { pc.el.classList.remove("lit"); });
+    hoverChar = ch; hoverSince = performance.now(); hideTag(); $("hit").classList.toggle("over", !!ch);
+    if (ch) ch.pieces.forEach(function (pc) { pc.el.classList.add("lit"); });
+  }
+  function stepHover() { if (hoverChar && !tagShown && performance.now() - hoverSince > 1000) showTag(hoverChar); }
+  function enter(ch) { // the proof of concept has no fandom pages yet: show the label at once
+    if (tagShown !== ch) showTag(ch);
+  }
+
+
+  /* the Colossal Titan, peering over the far-right dune as if it were Wall Maria */
+  var titan = { id: "titan", name: "Colossal Titan", fandom: "Attack on Titan", photo: "chars/aot-photo.jpg", tagAt: [1.22, .82], tagSide: -1,
+    pieces: [piece("chars/titan-head.png", "behindFar", { behindBand: 0, haze: .12 }), piece("chars/titan-hand.png", "behindMid", { haze: .06 })] };
+  titan.pieces[0].el.classList.add("fadeTop");
+  CHARS.push(titan);
+  function placeTitan(t) {
+    var U = innerHeight / map[1], head = titan.pieces[0], hand = titan.pieces[1], s = .00036 * U;
+    var breath = Math.sin(t * .55) * .0028;
+    var a = toScreen(1.38, .712 + breath);                       // the point between his teeth sits at the crest line
+    setMatrix(head, s, 0, 0, s, a[0] - 414 * s, a[1] - 600 * s);
+    var x0 = 1.49, x1 = 1.607, p0 = toScreen(x0, bandTop(0, x0) - .004), p1 = toScreen(x1, bandTop(0, x1) - .004);
+    var dx = p1[0] - p0[0], dy = p1[1] - p0[1], k = Math.hypot(dx, dy) / Math.hypot(326, -46), ang = Math.atan2(dy, dx) - Math.atan2(-46, 326);
+    var c = Math.cos(ang) * k, sn = Math.sin(ang) * k;
+    setMatrix(hand, c, sn, -sn, c, p0[0] - (c * 0 - sn * 232), p0[1] - (sn * 0 + c * 232));
+  }
+  // steam drifting up from behind the dune around him
+  var STEAM = []; for (var si = 0; si < 34; si++) { var crown = si < 16; STEAM.push({ x: crown ? 1.27 + Math.random() * .2 : 1.24 + Math.random() * .4, base: crown ? .86 + Math.random() * .03 : 0, ph: Math.random(), sp: .025 + Math.random() * .03, r: crown ? .03 + Math.random() * .03 : .015 + Math.random() * .025 }); }
+  function drawSteam(c, t, P) {
+    var U = innerHeight / map[1];
+    STEAM.forEach(function (st) {
+      var f = (st.ph + t * st.sp) % 1, x = st.x + Math.sin(t * .3 + st.ph * 9) * .02 + f * .03, y = (st.base || bandTop(0, st.x) - .01) + f * (st.base ? .14 : .22);
+      var p = toScreen(x, y), r = (st.r + f * .05) * U, a = Math.sin(f * Math.PI) * (st.base ? .3 : .14);
+      var g = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], r); g.addColorStop(0, "rgba(255,248,240," + a + ")"); g.addColorStop(1, "rgba(255,248,240,0)");
+      c.fillStyle = g; c.beginPath(); c.arc(p[0], p[1], r, 0, 7); c.fill();
+    });
+  }
+  CHARS.forEach(function (ch) { var im = new Image(); im.src = ch.photo; photos[ch.photo] = im; });
+
+  /* ── animated pieces: one shared WebGL renderer warps and lights each one into its own small canvas ── */
+  var GLR = null;
+  function glRenderer() {
+    if (GLR) return GLR;
+    var cv = document.createElement("canvas"); cv.width = 1024; cv.height = 1024;
+    var gl = cv.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: true });
+    var vs = `#version 300 es
+in vec2 a; uniform sampler2D uW; uniform float uT, uAmp, uSeed; uniform int uMode; uniform vec4 uUV;
+out vec2 vUv; out vec2 vA;
+void main(){
+  float w = texture(uW, a).r; vec2 d = vec2(0);
+  if (uMode == 1) { // hair drifting as if weightless
+    d.x = (sin(uT * 1.05 + a.y * 6.5 + uSeed) + .55 * sin(uT * 1.65 + a.x * 8.7 + uSeed * 2.)) * uAmp * w;
+    d.y = (cos(uT * .85 + a.x * 5.5 + uSeed) + .4 * sin(uT * 1.3 + a.y * 7.)) * uAmp * .6 * w;
+  } else if (uMode == 2) { // standing hair swaying from its roots
+    d.x = (sin(uT * 1.2 + uSeed) + .3 * sin(uT * 2.9 + a.y * 9.)) * uAmp * w;
+  } else if (uMode == 3) { // a slow breath: the upper body rises a touch
+    d.y = -sin(uT * 1.6 + uSeed) * uAmp * w;
+  }
+  vec2 p = a + d; vA = a;
+  vUv = vec2(mix(uUV.x, uUV.z, a.x), mix(uUV.y, uUV.w, a.y));
+  gl_Position = vec4(p.x * 2. - 1., 1. - p.y * 2., 0., 1.);
+}`;
+    var fs = `#version 300 es
+precision highp float;
+in vec2 vUv; in vec2 vA; out vec4 o;
+uniform sampler2D uTex; uniform float uLOff, uHazeAmt, uCaus, uT; uniform vec3 uTint, uHaze, uShadowT, uLightT; uniform vec4 uWorld;
+float caustic(vec2 uv, float t){
+  vec2 p = mod(uv * 6.28318, 6.28318) - 250.; vec2 i = p; float c = 1.; float inten = .005;
+  for (int n = 0; n < 4; n++) { float tt = t * (1. - (3.5 / float(n + 1))); i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x)); c += 1. / length(vec2(p.x / (sin(i.x + tt) / inten), p.y / (cos(i.y + tt) / inten))); }
+  c /= 4.; c = 1.17 - pow(c, 1.4); return pow(abs(c), 8.);
+}
+void main(){
+  vec4 t = texture(uTex, vUv); if (t.a < .004) discard;
+  vec3 col = t.rgb / t.a;
+  if (uLOff > 0.) { vec4 l = texture(uTex, vUv + vec2(uLOff, 0.)); float L = smoothstep(.06, .95, l.r / max(l.a, .001)); col = col * mix(uShadowT, uLightT, L) + pow(L, 10.) * uLightT * .5; }
+  else col *= uTint;
+  if (uCaus > 0.) { vec2 w = mix(uWorld.xy, uWorld.zw, vA); col += vec3(.9, 1., 1.) * clamp(caustic(vec2(w.x * 2.1, w.y * 7.), uT * .33), 0., 1.) * uCaus * (1. - vA.y * .5); }
+  col = mix(col, uHaze, uHazeAmt);
+  o = vec4(col * t.a, t.a);
+}`;
+    function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+    var pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr); gl.useProgram(pr);
+    var U = {}; ["uW", "uT", "uAmp", "uSeed", "uMode", "uUV", "uTex", "uLOff", "uHazeAmt", "uCaus", "uTint", "uHaze", "uShadowT", "uLightT", "uWorld"].forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
+    var N = 40, v = [], idx = [];
+    for (var y = 0; y <= N; y++) for (var x = 0; x <= N; x++) v.push(x / N, y / N);
+    for (y = 0; y < N; y++) for (x = 0; x < N; x++) { var i = y * (N + 1) + x; idx.push(i, i + 1, i + N + 1, i + 1, i + N + 2, i + N + 1); }
+    var vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    var ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(pr, "a"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(U.uTex, 0); gl.uniform1i(U.uW, 1); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    GLR = { cv: cv, gl: gl, U: U, n: idx.length };
+    return GLR;
+  }
+  function texFrom(gl, src, filter) {
+    var tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter || gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return tex;
+  }
+  // opts: frames (columns in the atlas), lit (true when the image holds colour | lighting halves), mode, amp, weight(fn(r,g,b,a,x,y) -> 0..1)
+  function glPiece(src, layerId, opts) {
+    var R = glRenderer(), gl = R.gl, el = document.createElement("canvas"); el.className = "piece";
+    $(layerId).appendChild(el);
+    var pc = Object.assign({ el: el, gl: true, src: src, w: 0, h: 0, alpha: null, m: [1, 0, 0, 1, 0, 0], frame: 0, frames: 1, lit: false, mode: 0, amp: 0, seed: Math.random() * 9 }, opts);
+    pc.ctx = el.getContext("2d");
+    var img = new Image(); img.onload = function () {
+      var cols = pc.frames * (pc.lit ? 2 : 1);
+      pc.w = Math.round(img.naturalWidth / cols); pc.h = img.naturalHeight; el.width = pc.w; el.height = pc.h; el.style.width = pc.w + "px"; el.style.height = pc.h + "px";
+      pc.tex = texFrom(gl, img); pc.cols = cols;
+      var c = document.createElement("canvas"); c.width = pc.w; c.height = pc.h; var cx = c.getContext("2d"); cx.drawImage(img, 0, 0);
+      var d = cx.getImageData(0, 0, pc.w, pc.h).data; pc.alpha = d;
+      // the weight map: how much each part of the picture is allowed to move
+      var G = 64, wd = new Uint8Array(G * G * 4);
+      for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) {
+        var sx = Math.min(pc.w - 1, Math.round(gx / (G - 1) * (pc.w - 1))), sy = Math.min(pc.h - 1, Math.round(gy / (G - 1) * (pc.h - 1))), o = (sy * pc.w + sx) * 4;
+        var wv = pc.weight ? pc.weight(d[o], d[o + 1], d[o + 2], d[o + 3], gx / (G - 1), gy / (G - 1)) : 0;
+        wd[(gy * G + gx) * 4] = Math.max(0, Math.min(255, wv * 255)); wd[(gy * G + gx) * 4 + 3] = 255;
+      }
+      // soften it so the picture bends instead of tearing
+      for (var pass = 0; pass < 3; pass++) { var nw = new Uint8Array(wd); for (gy = 1; gy < G - 1; gy++) for (gx = 1; gx < G - 1; gx++) { var s = 0; for (var oy2 = -1; oy2 <= 1; oy2++) for (var ox = -1; ox <= 1; ox++) s += wd[((gy + oy2) * G + gx + ox) * 4]; nw[(gy * G + gx) * 4] = s / 9; } wd = nw; }
+      pc.wtex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, pc.wtex); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, G, G, 0, gl.RGBA, gl.UNSIGNED_BYTE, wd);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (still) redraw();
+    };
+    img.src = src;
+    return pc;
+  }
+  function c3n(v) { return v; }
+  function drawGLPiece(pc, t, look) {
+    if (!pc.tex) return; var R = GLR, gl = R.gl, U = R.U;
+    if (R.cv.width < pc.w || R.cv.height < pc.h) { R.cv.width = Math.max(R.cv.width, pc.w); R.cv.height = Math.max(R.cv.height, pc.h); }
+    gl.viewport(0, 0, pc.w, pc.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    var f = pc.frame % pc.frames, cw = 1 / pc.cols, u0 = (pc.lit ? 2 * f : f) * cw;
+    gl.uniform4f(U.uUV, u0, 0, u0 + cw, 1); gl.uniform1f(U.uLOff, pc.lit ? cw : 0);
+    gl.uniform1f(U.uT, t); gl.uniform1f(U.uAmp, pc.amp); gl.uniform1f(U.uSeed, pc.seed); gl.uniform1i(U.uMode, pc.mode);
+    gl.uniform3fv(U.uTint, look.tint); gl.uniform3fv(U.uHaze, look.haze); gl.uniform1f(U.uHazeAmt, look.hazeAmt);
+    gl.uniform3fv(U.uShadowT, look.shadowT); gl.uniform3fv(U.uLightT, look.lightT);
+    gl.uniform1f(U.uCaus, look.caus || 0); gl.uniform4fv(U.uWorld, look.world || [0, 0, 1, 1]);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, pc.tex); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, pc.wtex);
+    gl.drawElements(gl.TRIANGLES, R.n, gl.UNSIGNED_SHORT, 0);
+    pc.ctx.clearRect(0, 0, pc.w, pc.h); pc.ctx.drawImage(R.cv, 0, R.cv.height - pc.h, pc.w, pc.h, 0, 0, pc.w, pc.h);
+  }
+  /* ── the rest of the cast ── */
+  function smooth01(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function rotMatrix(pc, cx, cy, lx, ly, k, ang) { var c = Math.cos(ang) * k, s = Math.sin(ang) * k; setMatrix(pc, c, s, -s, c, cx - (c * lx - s * ly), cy - (s * lx + c * ly)); }
+  // Madeline, floating in the sky with her hair drifting
+  var madeline = { id: "madeline", name: "Madeline", fandom: "Celeste", photo: "chars/celeste-photo.jpg", tagAt: [.46, .86], tagSide: 1,
+    pieces: [glPiece("chars/madeline.png", "behindFar", { mode: 1, amp: .016, weight: function (r, g, b, a, x, y) {
+      if (a < 120) return 0; var pink = r > 150 && b > 120 && r - g > 45 ? 1 : 0; var d = Math.hypot(x - .41, (y - .22) * .9); return pink * smooth01(.1, .42, d);
+    } })] };
+  // Eren with his ODM gear, standing on the crest beside the Titan
+  var eren = { id: "eren", name: "Eren", fandom: "Attack on Titan", photo: "chars/aot-photo.jpg", tagAt: [1.06, .82], tagSide: -1,
+    pieces: [glPiece("chars/eren.png", "behindMid", { mode: 3, amp: .005, weight: function (r, g, b, a, x, y) { return a > 60 ? Math.max(0, .9 - y) : 0; } })] };
+  // Steve, swinging his pickaxe at the sand every few seconds
+  var steve = { id: "steve", name: "Steve", fandom: "Minecraft", photo: "chars/minecraft-photo.jpg", tagAt: [1.1, .5], tagSide: 1,
+    pieces: [piece("chars/steve-body.png", "onNear", { haze: .02 }), piece("chars/steve-arm.png", "onNear", { haze: .02 })], lastSwing: -1 };
+  // Morel, lying on the seabed by his pipe
+  var morel = { id: "morel", name: "Morel", fandom: "Hunter x Hunter", photo: "chars/hxh-photo.jpg", tagAt: [1.62, -.72], tagSide: 1,
+    pieces: [glPiece("chars/morel.png", "underwater", { mode: 3, amp: .004, weight: function (r, g, b, a, x, y) { return a > 60 && x > .3 && x < .8 ? .7 - y * .5 : 0; } })], nextSoldier: 0 };
+  // a Poké Ball bobbing in the shallows: the half above the water sits in front of the surface
+  var ball = { id: "pokeball", name: "Poké Ball", fandom: "Pokémon", photo: "chars/pokemon-photo.jpg", tagAt: [.82, .29], tagSide: 1,
+    pieces: [glPiece("chars/pokeball.png", "underwater", { frames: 16, lit: true }), glPiece("chars/pokeball.png", "onWater", { frames: 16, lit: true })], nextRipple: 0 };
+  ball.pieces[1].clip = true;
+  // Gon, grown up, standing on the far crest with his hair swaying from its roots
+  var gon = { id: "gon", name: "Gon", fandom: "Hunter x Hunter", photo: "chars/hxh-photo.jpg", tagAt: [.79, .84], tagSide: 1,
+    pieces: [glPiece("chars/gon.png", "behindMid", { mode: 2, amp: .035, weight: function (r, g, b, a, x, y) { return 1 - smooth01(.04, .37, y); } })] };
+  CHARS.push(madeline, eren, steve, morel, ball, gon);
+  CHARS.forEach(function (ch) { if (!photos[ch.photo]) { var im = new Image(); im.src = ch.photo; photos[ch.photo] = im; } });
+
+  function columnColJS(y, P) {
+    var sh = [P.waterA[0] * .82 + .18, P.waterA[1] * .82 + .18, P.waterA[2] * .82 + .18], dp = [P.waterB[0] * .45 + .07 * .55, P.waterB[1] * .45 + .05 * .55, P.waterB[2] * .45 + .24 * .55], k = smooth01(-1.05, .3, y);
+    return [dp[0] + (sh[0] - dp[0]) * k, dp[1] + (sh[1] - dp[1]) * k, dp[2] + (sh[2] - dp[2]) * k];
+  }
+  function lookAbove(P, Lh, haze) {
+    var li = Lh.li, sh = P.shade, lit = P.lit, lm = Math.max(lit[0], lit[1], lit[2]) || 1, k = Math.min(1, Math.max(0, 1 - li * 1.1));
+    var tint = [0, 1, 2].map(function (i) { var day = .55 + .45 * (lit[i] / lm) * .6 + .45 * .4 * P.lightCol[i], night = sh[i] * 1.55; return day * (1 - k) + night * k; });
+    return { tint: tint, haze: P.haze, hazeAmt: haze + .1 * (1 - li), shadowT: [0, 1, 2].map(function (i) { return sh[i] * 1.25 + .08; }), lightT: [0, 1, 2].map(function (i) { return (1 + (P.lightCol[i] - 1) * .3) * (.62 + .45 * li); }) };
+  }
+  function lookUnder(P, Lh, y, x0, y0, x1, y1) {
+    var d = .55 + .45 * Math.max(Lh.li, .35);
+    return { tint: [0, 1, 2].map(function (i) { return (1 + (P.waterA[i] * 1.1 - 1) * .35) * d; }), haze: columnColJS(y, P), hazeAmt: .2, shadowT: [.5, .55, .7], lightT: [1, 1, 1], caus: .22 * (.4 + .6 * Lh.li), world: [x0, y0, x1, y1] };
+  }
+
+  var soldiers = [];
+  function updateCast(t, dt, P, Lh) {
+    var U = innerHeight / map[1], R = GLR;
+    // Madeline
+    var mp = madeline.pieces[0];
+    if (mp.w) { var k = .15 / mp.w * U, c = toScreen(.36, .845 + Math.sin(t * .7) * .009); rotMatrix(mp, c[0], c[1], mp.w * .5, mp.h * .5, k, Math.sin(t * .45) * .045); drawGLPiece(mp, t, lookAbove(P, Lh, .04)); }
+    // Eren on the crest
+    var ep = eren.pieces[0];
+    if (ep.w) { var ke = .1 / ep.h * U, xe = 1.115, f = toScreen(xe, bandTop(0, xe) - .003); rotMatrix(ep, f[0], f[1], ep.w * .64, ep.h * .985, ke, Math.sin(t * .6) * .012); drawGLPiece(ep, t, lookAbove(P, Lh, .12));
+      if (Math.sin(t * .23) > .995 && Math.random() < .2) for (var gi = 0; gi < 6; gi++) parts.push({ kind: "puff", x: xe + (Math.random() - .5) * .02, y: bandTop(0, xe) + .01, vx: (Math.random() - .5) * .02, vy: .02 + Math.random() * .02, r: .006 + Math.random() * .006, life: 1.6, max: 1.6 }); }
+    // Gon: feet in the far crest's sand, a slow weight shift
+    var gp = gon.pieces[0];
+    if (gp.w) { var kg = .15 / gp.h * U, xg = .72, fg = toScreen(xg, bandTop(0, xg) - .003); rotMatrix(gp, fg[0], fg[1], gp.w * .45, gp.h * .975, kg, Math.sin(t * .5 + 1) * .012); drawGLPiece(gp, t, lookAbove(P, Lh, .1)); }
+    // Steve: rest, wind up, strike, recover
+    var sb = steve.pieces[0], sa = steve.pieces[1];
+    if (sb.w && sa.w) {
+      var ks = .16 / sb.h * U, xs = 1.0, foot = toScreen(xs, bandTop(2, xs) - .012), bob = Math.sin(t * 2.2) * .0012 * U;
+      var bx = foot[0] - 60 * ks, by = foot[1] - 594 * ks + bob;
+      setMatrix(sb, ks, 0, 0, ks, bx, by);
+      var p = (t % 4.6) / 4.6, ang;
+      if (p < .62) ang = Math.sin(t * 2.2) * .03;
+      else if (p < .74) ang = .3 * smooth01(.62, .74, p);
+      else if (p < .79) ang = .3 - 1.6 * smooth01(.74, .79, p);
+      else ang = -1.3 + 1.3 * smooth01(.79, 1, p);
+      var px = bx + 22.5 * ks, py = by + 180 * ks; rotMatrix(sa, px, py, 206.5, 190, ks, ang);
+      var cycle = Math.floor(t / 4.6);
+      if (p >= .79 && steve.lastSwing !== cycle) {
+        steve.lastSwing = cycle;
+        var m = sa.m, tx = m[0] * -3 + m[2] * 70 + m[4], ty = m[1] * -3 + m[3] * 70 + m[5];
+        for (var ci = 0; ci < 9; ci++) fx[2].parts.push({ x: tx + (Math.random() - .5) * 6, y: ty, vx: (Math.random() - .5) * 120, vy: -(60 + Math.random() * 120), g: 800, c: ["#8b5a2b", "#c58a4f", "#6b4423", "#e1ab68"][ci % 4], s: 2.2, ground: ty + 8 + Math.random() * 10, life: 1.1 });
+        burst({ f0: 1400, f1: 500, dur: .06, vol: .05, q: 1.2 }); tone(220, 150, .07, .06); tone(330, 220, .05, .03, .03);   // a hollow wooden knock
+      }
+    }
+    // Morel, and the little soldiers of bubbles that climb out of his pipe
+    var mo = morel.pieces[0];
+    if (mo.w) {
+      var km = .42 / mo.w * U, xm = 1.17, wl = .42, ym = bandTop(5, xm + .2) - .004, tl = toScreen(xm, ym);
+      setMatrix(mo, km, 0, 0, km, tl[0], tl[1] - mo.h * km);
+      var hy = mo.h / mo.w * wl; drawGLPiece(mo, t, lookUnder(P, Lh, ym, xm, ym + hy, xm + wl, ym));
+      if (t > morel.nextSoldier) { morel.nextSoldier = t + 1.6 + Math.random() * 1.2; var ox = xm + 939 / mo.w * wl, oyy = ym + (mo.h - 190) / mo.w * wl; soldiers.push({ x: ox, y: oyy, age: 0, ph: Math.random() * 9, s: .8 + Math.random() * .4, drift: (Math.random() - .3) * .01 }); }
+    }
+    // the Poké Ball riding the swell
+    var b0 = ball.pieces[0], b1 = ball.pieces[1];
+    if (b0.w && b1.w) {
+      var xb = .757, sh = shoreY(xb), yb = sh - .05, u = wavePhase(xb, t), depth = (sh - yb) / SHEET, cs = 1 - smooth01(0, .45, u);
+      var lift = Math.exp(-Math.pow((depth - cs) / .14, 2)) * (u < .47 ? 1 : 0) * .007;
+      yb += Math.sin(t * 1.4) * .003 + lift;
+      var kb = .05 / 205 * U, cb = toScreen(xb, yb), tilt = Math.sin(t * 1.1) * .14 + lift * 12, fr = Math.floor(t * 2.2) % 16;
+      [b0, b1].forEach(function (pc) { pc.frame = fr; rotMatrix(pc, cb[0], cb[1], 128, 128, kb, tilt); drawGLPiece(pc, t, lookAbove(P, Lh, .02)); });
+      var water = 128 + 26; b1.el.style.clipPath = "inset(0 0 " + (256 - water) + "px 0)";
+      if (t > ball.nextRipple) { ball.nextRipple = t + 1.3; addRipple(xb, yb - .012, .13); }
+    }
+    // soldiers rise, wobble, and burst into bubbles
+    soldiers = soldiers.filter(function (sd) {
+      sd.age += dt; sd.y += dt * .022; sd.x += dt * sd.drift + Math.sin(t * 1.5 + sd.ph) * .0004;
+      if (sd.age > 7 || sd.y > shoreY(sd.x) - .03) { var s0 = toScreen(sd.x, sd.y); bubbles(s0[0], s0[1], 6, 10); return false; }
+      // the cursor pops them
+      if (mouse.on) { var sp = toScreen(sd.x, sd.y), kk = U * .0042 * sd.s, dxm = mouse.x - sp[0], dym = mouse.y - sp[1];
+        if (Math.abs(dxm) < 6 * kk + 4 && dym > -13 * kk - 4 && dym < 6 * kk + 4) { bubbles(sp[0], sp[1] - 4 * kk, 9, 9); sfx.bubble(); return false; } }
+      return true;
+    });
+  }
+  function drawSoldiers(c, t) {
+    var U = innerHeight / map[1];
+    soldiers.forEach(function (sd) {
+      var p = toScreen(sd.x, sd.y), k = U * .0042 * sd.s * Math.min(1, sd.age * 1.5), a = Math.min(1, sd.age * 1.2) * Math.min(1, (7 - sd.age) * .8) * .7, sw = Math.sin(t * 5 + sd.ph);
+      function bub(x, y, r) { c.beginPath(); c.arc(p[0] + x * k, p[1] + y * k, r * k, 0, 7); c.stroke(); c.beginPath(); c.arc(p[0] + (x - r * .35) * k, p[1] + (y - r * .35) * k, r * k * .25, 0, 7); c.fill(); }
+      c.strokeStyle = "rgba(235,250,255," + a + ")"; c.fillStyle = "rgba(255,255,255," + a * .8 + ")"; c.lineWidth = Math.max(.8, k * .35);
+      bub(0, -9, 2.4); bub(0, -4.5, 2.6); bub(0, -.5, 2.1);                       // head, chest, hips
+      bub(-3.2, -5 + sw * .6, 1.2); bub(3.2, -5 - sw * .6, 1.2);                  // arms
+      bub(-1.4, 3 + sw, 1.3); bub(1.4, 3 - sw, 1.3);                               // legs marching
+    });
+  }
+
+  /* ── third cast: the Site of Grace, the lamp and its smoke, the crafting table, the Crusaders, Mario, Sonic ── */
+  function pixelate(pc) { pc.el.style.imageRendering = "pixelated"; }
+  // the Site of Grace: a Blender mound of pale golden grass on the far dune's face; its flame is drawn live
+  var grace = { id: "grace", name: "Site of Grace", fandom: "Elden Ring", photo: "chars/elden-photo.jpg", tagAt: [.97, .69], tagSide: 1,
+    pieces: [glPiece("chars/grace.png", "behindMid", {})], heart: null, k: 1 };
+  // the crafting table Steve works at: a pixel-textured block, painted with the scene's light, behind his arm
+  var table = { id: "table", name: "Crafting table", fandom: "Minecraft", photo: "chars/minecraft-photo.jpg", tagAt: [.86, .5], tagSide: -1,
+    pieces: [glPiece("chars/table.png", "onNear", { lit: true })] };
+  $("onNear").insertBefore(table.pieces[0].el, $("onNear").firstChild);
+  // the Stardust Crusaders, posed behind the middle dune's crest like a group shot over a ridge, breathing
+  var crusaders = { id: "jojo", name: "Stardust Crusaders", fandom: "JoJo's Bizarre Adventure", photo: "chars/jojo-photo.jpg", tagAt: [.27, .6], tagSide: 1,
+    pieces: [glPiece("chars/jojo.png", "behindMid", { mode: 3, amp: .004, weight: function (r, g, b, a, x, y) { return a > 60 ? Math.max(0, .85 - y) * .8 : 0; } })] };
+  // the magic lamp is scenery: no label, just its smoke climbing to the sky
+  var lamp = { pieces: [glPiece("chars/lamp.png", "onNear", {})], spout: null };
+  // Mario, small and 16-bit, swimming laps under the surface
+  var mario = { id: "mario", name: "Mario", fandom: "Super Mario", photo: "chars/mario-photo.jpg", tagAt: [.4, -.16], tagSide: 1,
+    pieces: [glPiece("chars/mario.png", "underwater", { frames: 2 })], x: .3, dir: 1, nextBubble: 0 };
+  // Sonic, tearing round a Green Hill loop that sits on the middle dune
+  var sonic = { id: "sonic", name: "Sonic", fandom: "Sonic the Hedgehog", photo: "chars/sonic-photo.jpg", tagAt: [1.33, .63], tagSide: 1,
+    pieces: [glPiece("chars/sonic-loop.png", "behindMid", {}), glPiece("chars/sonic.png", "behindMid", { frames: 4 })] };
+  [mario.pieces[0], sonic.pieces[0], sonic.pieces[1], table.pieces[0]].forEach(pixelate);
+  CHARS.push(crusaders, table, grace, sonic, mario);
+  [crusaders, table, grace, sonic, mario].forEach(function (ch) { if (!photos[ch.photo]) { var im = new Image(); im.src = ch.photo; photos[ch.photo] = im; } });
+
+  var EMBERS = [], SMOKE = [], nextEmber = 0, nextPuff = 0;
+  function updateCast3(t, dt, P, Lh) {
+    var U = innerHeight / map[1];
+    // grace: the heart of the mound sits on the far dune's face
+    var gp = grace.pieces[0];
+    if (gp.w) {
+      var gx = .89, gk = .15 / gp.w * U, hd = [gx, bandTop(0, gx) - .048], hs = toScreen(hd[0], hd[1]);
+      setMatrix(gp, gk, 0, 0, gk, hs[0] - 309 * gk, hs[1] - 86 * gk); grace.heart = hd; grace.k = gk;
+      var lg = lookAbove(P, Lh, .05); lg.tint = lg.tint.map(function (v) { return v * .45 + .62; }); drawGLPiece(gp, t, lg);
+      if (t > nextEmber) { nextEmber = t + .12 + Math.random() * .2; EMBERS.push({ x: hd[0] + (Math.random() - .5) * .05, y: hd[1] + Math.random() * .01, age: 0, life: 2.5 + Math.random() * 2, ph: Math.random() * 9, r: .6 + Math.random() * .9 }); }
+    }
+    EMBERS = EMBERS.filter(function (e) { e.age += dt; e.y += dt * .018; e.x += Math.sin(t * 1.3 + e.ph) * dt * .006; return e.age < e.life; });
+    // the crafting table
+    var tp = table.pieces[0];
+    if (tp.w) { var tk = .09 / tp.h * U, tx = .942, tb = toScreen(tx, bandTop(2, tx) - .01); setMatrix(tp, tk, 0, 0, tk, tb[0] - tp.w * .5 * tk, tb[1] - (tp.h - 4) * tk); drawGLPiece(tp, t, lookAbove(P, Lh, .03)); }
+    // the Crusaders: their feet stay hidden behind the front dune
+    var jp = crusaders.pieces[0];
+    if (jp.w) { var jk = .2 / jp.h * U, jx = .1, jb = toScreen(jx, bandTop(1, jx + .1) - .075); setMatrix(jp, jk, 0, 0, jk, jb[0], jb[1] - jp.h * jk); drawGLPiece(jp, t, lookAbove(P, Lh, .16)); }
+    // the lamp, and its smoke
+    var la = lamp.pieces[0];
+    if (la.w) {
+      var lk = .12 / la.w * U, lx = .63, lb = toScreen(lx, bandTop(2, lx) - .014);
+      setMatrix(la, lk, 0, 0, lk, lb[0] - 280 * lk, lb[1] - 231 * lk); drawGLPiece(la, t, lookAbove(P, Lh, .02));
+      lamp.spout = toDesign(lb[0] + (10 - 280) * lk, lb[1] + (34 - 231) * lk);
+      if (!lamp.warm) { lamp.warm = true; for (var wt = 18; wt > 0; wt -= .11) { var sw0 = { x0: lamp.spout[0], y0: lamp.spout[1], y: lamp.spout[1], age: 0, seed: Math.random() * 6 }; while (sw0.age < wt) { sw0.age += .1; sw0.y += .1 * (.03 + Math.min(sw0.age, 8) * .004); } if (sw0.y < 1.25) SMOKE.push(sw0); } }   // the column is already standing when the page opens
+      if (t > nextPuff) { nextPuff = t + .11; SMOKE.push({ x0: lamp.spout[0], y0: lamp.spout[1], y: lamp.spout[1], age: 0, seed: Math.random() * 6 }); }
+    }
+    SMOKE = SMOKE.filter(function (s) { s.age += dt; s.y += dt * (.03 + Math.min(s.age, 8) * .004); return s.y < 1.25; });
+    // Mario: a stroke every second or so, gliding and sinking between, turning at each end of his lap
+    var mp2 = mario.pieces[0];
+    if (mp2.w) {
+      mario.x += mario.dir * dt * .028; if (mario.x > .78) mario.dir = -1; if (mario.x < .14) mario.dir = 1;
+      var per = 1.15, ph = (t % per) / per, kick = ph < .28, rise = kick ? smooth01(0, .28, ph) : 1 - smooth01(.28, 1, ph);
+      var my = -.2 + Math.sin(t * .23) * .035 + rise * .012, km = .09 / 16 * U, mc = toScreen(mario.x, my), ang = (kick ? -.2 : -.06) * mario.dir;
+      var a = Math.cos(ang) * km * mario.dir, b = Math.sin(ang) * km * mario.dir, c = -Math.sin(ang) * km, d = Math.cos(ang) * km;
+      mp2.frame = kick ? 1 : 0; setMatrix(mp2, a, b, c, d, mc[0] - (a * 8 + c * 8), mc[1] - (b * 8 + d * 8));
+      drawGLPiece(mp2, t, lookUnder(P, Lh, my, mario.x - .03, my + .03, mario.x + .03, my - .03));
+      mario.tagAt = [mario.x + .065, my + .03];
+      if (t > mario.nextBubble) { mario.nextBubble = t + 1.6 + Math.random() * 2; bubbles(a * 14 + c * 5 + mp2.m[4], b * 14 + d * 5 + mp2.m[5], 2, 3); }
+    }
+    // Sonic: in along the crest, round the loop (turning in eighths, as the 16-bit games did), and out again
+    var lp = sonic.pieces[0], sp = sonic.pieces[1];
+    if (lp.w && sp.w) {
+      var kl = .14 / lp.w * U, LX = 1.245, base = toScreen(LX, bandTop(1, LX) + .012), ox = base[0] - 56 * kl, oy = base[1] - 84 * kl;
+      setMatrix(lp, kl, 0, 0, kl, ox, oy); drawGLPiece(lp, t, lookAbove(P, Lh, .08));
+      var RIN = 34, pre = 170, post = 170, circ = Math.PI * 2 * RIN, total = pre + circ + post, cyc = total / 330 + 1.6, s = (t % cyc) * 330, sx, sy, sa = 0;
+      if (s < pre) { sx = 56 - pre + s; sy = 84; }
+      else if (s < pre + circ) { var th = (s - pre) / RIN; sx = 56 + Math.sin(th) * RIN; sy = 50 + Math.cos(th) * RIN; sa = -Math.round(th / (Math.PI / 4)) * Math.PI / 4; }
+      else { sx = 56 + (s - pre - circ); sy = 84; }
+      sp.frame = Math.floor(t * 18) % 4; rotMatrix(sp, ox + sx * kl, oy + sy * kl, 14, 27, kl, sa);
+      sp.el.style.opacity = s < total ? (smooth01(0, 40, s) * (1 - smooth01(total - 40, total, s))).toFixed(3) : "0";
+      drawGLPiece(sp, t, lookAbove(P, Lh, .08));
+    }
+  }
+  function drawCastFx(c, li, t, P) {
+    var U = innerHeight / map[1];
+    if (grace.heart && li <= 1) {
+      var h = toScreen(grace.heart[0], grace.heart[1]), fl = 1 + .07 * Math.sin(t * 11) + .05 * Math.sin(t * 6.7 + 1), night = 1 - Math.min(1, LH ? LH.li : 1) * .55;
+      c.save(); c.globalCompositeOperation = "lighter";
+      if (li === 0) {   // warm light pooled on the sand around the mound
+        c.translate(h[0], h[1] + .01 * U); c.scale(1, .36);
+        var g = c.createRadialGradient(0, 0, 0, 0, 0, .13 * U); g.addColorStop(0, "rgba(255,200,110," + .32 * night * fl + ")"); g.addColorStop(1, "rgba(255,190,90,0)");
+        c.fillStyle = g; c.beginPath(); c.arc(0, 0, .13 * U, 0, 7); c.fill();
+      } else {          // the flame: a thin golden stalk that leans and flickers, a halo, and embers
+        var halo = c.createRadialGradient(h[0], h[1] - .03 * U, 0, h[0], h[1] - .03 * U, .09 * U);
+        halo.addColorStop(0, "rgba(255,214,140," + .22 * night * fl + ")"); halo.addColorStop(1, "rgba(255,200,120,0)");
+        c.fillStyle = halo; c.beginPath(); c.arc(h[0], h[1] - .03 * U, .09 * U, 0, 7); c.fill();
+        var H = .085 * U * fl, sw = Math.sin(t * .9) * .012 * U, N = 18;
+        [[.022, "255,190,90", .1], [.011, "255,206,120", .22], [.005, "255,230,170", .55], [.0018, "255,252,235", 1]].forEach(function (ly) {
+          c.beginPath();
+          for (var side = -1; side <= 1; side += 2) for (var i = 0; i <= N; i++) {
+            var q = side < 0 ? i / N : 1 - i / N, w = ly[0] * U * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.1 + .02)), .7) * (1 - q * .55) * fl;
+            var x = h[0] + sw * q * q + Math.sin(t * 3 + q * 5) * .0015 * U * q + side * w, y = h[1] - .004 * U - H * q;
+            if (i === 0 && side < 0) c.moveTo(x, y); else c.lineTo(x, y);
+          }
+          c.closePath(); c.fillStyle = "rgba(" + ly[1] + "," + ly[2] * (.6 + .4 * night) + ")"; c.fill();
+        });
+        EMBERS.forEach(function (e) {
+          var p = toScreen(e.x, e.y), a = Math.sin(Math.PI * e.age / e.life) * .85, r = e.r * U * .0035;
+          var eg = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 4); eg.addColorStop(0, "rgba(255,226,150," + a + ")"); eg.addColorStop(1, "rgba(255,200,110,0)");
+          c.fillStyle = eg; c.beginPath(); c.arc(p[0], p[1], r * 4, 0, 7); c.fill();
+        });
+      }
+      c.restore();
+    }
+    if (li === 2 && SMOKE.length) {   // the lamp's smoke: a soft ribbon that wanders and widens as it climbs
+      var hz = P.haze, col = [Math.round(232 * .7 + hz[0] * 255 * .3), Math.round(222 * .7 + hz[1] * 255 * .3), Math.round(250 * .7 + hz[2] * 255 * .3)].join(",");
+      SMOKE.forEach(function (s) {
+        var hgt = s.y - s.y0, x = s.x0 + Math.sin(hgt * 8 - t * .5 + s.seed * .15) * .02 * Math.min(1, hgt * 3) + Math.sin(hgt * 2.6 + t * .17) * .045 * hgt - hgt * .02;
+        var p = toScreen(x, s.y), r = (.005 + hgt * .05) * U, a = Math.min(1, s.age * 1.5) * (1 - smooth01(.75, 1.2, s.y)) * (.3 - Math.min(.17, hgt * .17));
+        if (a <= .002) return;
+        var g = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], r); g.addColorStop(0, "rgba(" + col + "," + a + ")"); g.addColorStop(1, "rgba(" + col + ",0)");
+        c.fillStyle = g; c.beginPath(); c.arc(p[0], p[1], r, 0, 7); c.fill();
+      });
+    }
+  }
+
+  /* ── search: characters and fandoms; the top hit glows where it lives ── */
+  var SKETCH = function (sx, sy) { return [sx / 2000 * A, 1 - sy / 855]; };
+  var THINGS = [
+    { name: "Madeline", fandom: "Celeste", at: [.36, .84], char: "madeline", c: ["#ff6fa8", "#7a3cff"] },
+    { name: "Stardust Crusaders", fandom: "JoJo's Bizarre Adventure", at: [.16, .55], char: "jojo", c: ["#5a2d82", "#f2c14e"] },
+    { name: "Gon", fandom: "Hunter x Hunter", at: [.72, .76], char: "gon", c: ["#2f9e44", "#f08c00"] },
+    { name: "Morel", fandom: "Hunter x Hunter", at: [1.38, -.78], deep: true, char: "morel", c: ["#2f9e44", "#748ffc"] },
+    { name: "Eren", fandom: "Attack on Titan", at: [1.115, .78], char: "eren", c: ["#5c4033", "#a3896a"] },
+    { name: "Colossal Titan", fandom: "Attack on Titan", at: [1.4, .8], char: "titan", c: ["#c0392b", "#5c4033"] },
+    { name: "Steve", fandom: "Minecraft", at: [1.0, .46], char: "steve", c: ["#3a9d23", "#6b4f2a"] },
+    { name: "Crafting table", fandom: "Minecraft", at: [.931, .43], char: "table", c: ["#8b5a2b", "#c69c6d"] },
+    { name: "Sonic", fandom: "Sonic the Hedgehog", at: [1.245, .6], char: "sonic", c: ["#1e5bd8", "#f2c14e"] },
+    { name: "Mario", fandom: "Super Mario", at: [.45, -.2], deep: true, char: "mario", c: ["#e03131", "#1c7ed6"] },
+    { name: "Poké Ball", fandom: "Pokémon", at: [.757, .26], char: "pokeball", c: ["#e03131", "#ced4da"] },
+    { name: "Site of Grace", fandom: "Elden Ring", at: [.89, .67], char: "grace", c: ["#d4a017", "#5c4d1a"] }
+  ];
+  var FANDOMS = []; THINGS.forEach(function (t) { if (FANDOMS.indexOf(t.fandom) < 0) FANDOMS.push(t.fandom); });
+  var beacon = document.createElement("div"); beacon.className = "beacon"; beacon.innerHTML = "<b></b>"; $("beacons").appendChild(beacon);
+  var lit = null, searchLit = null;
+  function placeBeacons() { if (!lit) return; var s = toScreen(lit.at[0], lit.at[1]); beacon.style.left = s[0] + "px"; beacon.style.top = s[1] + "px"; }
+  function scrollToThing(th) { var want = th.at[1] - map[1] / 2, y = (oy0 - want) / map[1] * innerHeight; scrollTo({ top: Math.max(0, Math.min(scrollMax, y)), behavior: still ? "auto" : "smooth" }); }
+  function glow(thing, go) {
+    var ch = thing && thing.char ? CHARS.find(function (c) { return c.id === thing.char; }) : null;
+    if (searchLit && searchLit !== ch) searchLit.pieces.forEach(function (pc) { if (searchLit !== hoverChar) pc.el.classList.remove("lit"); });
+    searchLit = ch; if (ch) { ch.pieces.forEach(function (pc) { pc.el.classList.add("lit"); }); lit = null; beacon.classList.remove("on"); if (go) scrollToThing(thing); return; }
+    lit = thing; if (!thing) { beacon.classList.remove("on"); return; } beacon.querySelector("b").textContent = thing.name; placeBeacons(); beacon.classList.add("on"); if (go) scrollToThing(thing); }
+  function initials(s) { return s.split(/\s+/).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase(); }
+  /* ── sound ── */
+  var audio = null, SND = {};
+  function startSound() {
+    if (audio) return;
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)(); audio = ac;
+      function noise(sec, brown) { var len = ac.sampleRate * sec, b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0), last = 0; for (var i = 0; i < len; i++) { var w = Math.random() * 2 - 1; if (brown) { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; } return b; }
+      var brown = noise(4, true), white = noise(2, false);
+      function src(b) { var s = ac.createBufferSource(); s.buffer = b; s.loop = true; s.start(0, Math.random() * 1.5); return s; }
+      function chain(source, type, f, q, g) { var fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q || .7; var gn = ac.createGain(); gn.gain.value = g; source.connect(fl).connect(gn); return { f: fl, g: gn }; }
+      var lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 18000; lp.Q.value = .6; lp.connect(ac.destination);
+      var master = ac.createGain(); master.gain.value = 0; master.connect(lp); master.gain.linearRampToValueAtTime(.9, ac.currentTime + 3);
+      var air = ac.createGain(); air.connect(master);
+      var wind = chain(src(brown), "bandpass", 520, .7, .14); wind.g.connect(air);
+      var lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = .07; lg.gain.value = 260; lfo.connect(lg).connect(wind.f.frequency); lfo.start();
+      var lfo2 = ac.createOscillator(), lg2 = ac.createGain(); lfo2.frequency.value = .045; lg2.gain.value = .06; lfo2.connect(lg2).connect(wind.g.gain); lfo2.start();
+      // the waves, driven by the same clock as the picture
+      var rumble = chain(src(brown), "lowpass", 320, .6, .04); rumble.g.connect(air);
+      var hiss = chain(src(white), "bandpass", 2400, .6, 0); hiss.g.connect(air);
+      var fizz = chain(src(white), "highpass", 3800, .5, 0); fizz.g.connect(air);
+      var deepN = chain(src(brown), "lowpass", 170, .7, 0); deepN.g.connect(master);
+      SND = { ac: ac, lp: lp, master: master, air: air, rumble: rumble.g.gain, hiss: hiss.g.gain, fizz: fizz.g.gain, deep: deepN.g.gain, white: white, next: -1 };
+      scheduleWaves();
+    } catch (e) { audio = null; }
+  }
+  function scheduleWaves() { // keep the next waves booked on the audio clock, in step with the picture
+    if (!audio) return; var ac = audio, now = clock(), phi = .035 * Math.sin(A / 2 * 1.3);
+    var k = Math.floor(now / 8 + phi); if (SND.next < k) SND.next = k;
+    while ((SND.next - phi) * 8 < now + 12) {
+      var start = (SND.next - phi) * 8, at = function (u) { return ac.currentTime + Math.max(0, start + u * 8 - now); };
+      if (start + 8 > now) {
+        SND.rumble.setValueAtTime(.04, at(0)); SND.rumble.linearRampToValueAtTime(.2, at(.42)); SND.rumble.linearRampToValueAtTime(.09, at(.55)); SND.rumble.linearRampToValueAtTime(.04, at(.99));
+        SND.hiss.setValueAtTime(0, at(.44)); SND.hiss.linearRampToValueAtTime(.07, at(.5)); SND.hiss.linearRampToValueAtTime(.025, at(.6)); SND.hiss.linearRampToValueAtTime(0, at(.75));
+        SND.fizz.setValueAtTime(0, at(.58)); SND.fizz.linearRampToValueAtTime(.025, at(.64)); SND.fizz.linearRampToValueAtTime(0, at(.98));
+        if (start + .44 * 8 > now) burst({ f0: 900, f1: 260, dur: 1.5, vol: .17, q: .7, att: .06, delay: start + .44 * 8 - now, dry: true });
+      }
+      SND.next++;
+    }
+  }
+  setInterval(scheduleWaves, 1500);
+  function burst(o) {
+    if (!audio) return; var ac = audio, t = ac.currentTime + (o.delay || 0);
+    var s = ac.createBufferSource(); s.buffer = SND.white;
+    var f = ac.createBiquadFilter(); f.type = o.type || "bandpass"; f.frequency.setValueAtTime(o.f0, t); f.frequency.exponentialRampToValueAtTime(o.f1 || o.f0, t + o.dur); f.Q.value = o.q || 1;
+    var g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(o.vol, t + (o.att || .012)); g.gain.exponentialRampToValueAtTime(.0001, t + o.dur);
+    s.connect(f).connect(g).connect(o.dry ? SND.air : SND.master); s.start(t, Math.random()); s.stop(t + o.dur + .05);
+  }
+  function tone(f0, f1, dur, vol, delay) {
+    if (!audio) return; var ac = audio, t = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(SND.master); o.start(t); o.stop(t + dur + .05);
+  }
+  var sfx = {
+    plunge: function (k) { burst({ f0: 2200, f1: 380, dur: .5 + .5 * k, vol: .12 + .35 * k, q: .8 }); tone(160, 55, .4 + .2 * k, .1 + .25 * k); },
+    drip: function (scale) { burst({ f0: 1500 + 600 * scale, f1: 500, dur: .18, vol: .05 + .05 * scale, q: 1.2 }); tone(700 + 300 * (1 - scale), 260, .1, .035 * scale + .015); },
+    grains: function (scale) { burst({ f0: 4200, f1: 3000, dur: .09, vol: .025 + .04 * scale, type: "highpass", q: .7 }); },
+    drop: function () { burst({ f0: 3300, f1: 1700, dur: .5, vol: .1, q: .6, att: .05 }); },
+    tick: function () { tone(1200, 1500, .05, .025); tone(1800, 2200, .05, .018, .05); },
+    whoosh: function () { burst({ f0: 600, f1: 2400, dur: .7, vol: .08, q: .5, att: .3 }); },
+    bubble: function (d) { tone(280 + Math.random() * 260, 880 + Math.random() * 520, .07, .035, d || 0); }
+  };
+  addEventListener("pointerdown", startSound); addEventListener("keydown", startSound);
+
+  /* ── crossing the surface as you scroll ── */
+  var lastTop = null, lastUnder = -1, nextBubbleSound = 0;
+  function underwater(now, dt) {
+    var topY = oy + map[1], W = swashY(A / 2, T), under = Math.max(0, Math.min(1, (W + .015 - topY) / .09));
+    if (audio && Math.abs(under - lastUnder) > .002) {
+      var t = audio.currentTime;
+      SND.lp.frequency.setTargetAtTime(18000 * Math.pow(600 / 18000, under), t, .08);
+      SND.air.gain.setTargetAtTime(1 - under * .45, t, .1); SND.deep.setTargetAtTime(under * .3, t, .2);
+      lastUnder = under;
+    }
+    if (lastTop != null && (lastTop - W) * (topY - W) < 0) {
+      var v = (topY - lastTop) / Math.max(dt, .001), speed = Math.min(1, Math.abs(v) / 1.6);
+      if (speed > .12) sfx.plunge(speed); else sfx.drip(.6);
+      surfaceFx(v < 0, speed);
+    }
+    lastTop = topY;
+    if (audio && under > .6 && now > nextBubbleSound) { if (Math.random() < .5) sfx.bubble(); nextBubbleSound = now + 900 + Math.random() * 1400; }
+  }
+  function surfaceFx(down, k) {
+    var W = innerWidth, n = Math.round(8 + 50 * k), i;
+    for (i = 0; i < n; i++) parts.push({ kind: "drop", x: Math.random() * W, y: -6 - Math.random() * 30, vx: (Math.random() - .5) * 40, vy: (down ? 40 : 120) + Math.random() * 240 * (.4 + k), r: .7 + Math.random() * 1.8 * (.4 + k), life: 1.2, g: 900 });
+    if (down) for (i = 0; i < n; i++) parts.push({ kind: "bubble", x: Math.random() * W, y: innerHeight * (.35 + Math.random() * .65), vy: -(90 + Math.random() * 300 * (.4 + k)), r: .7 + Math.random() * 2.6 * (.5 + k), life: 1.4 + Math.random(), ph: Math.random() * 9, delay: .15 + Math.random() * .3 });
+  }
+
+  /* ── touch: ripples in the water, grains on the sand, bubbles below ── */
+  var ripBuf = new Float32Array(40), ripI = 0;
+  function addRipple(x, y, amp) { ripBuf.set([x, y, T, amp], (ripI % 10) * 4); ripI++; }
+  var fx = [$("fx0"), $("fx1"), $("fx2")].map(function (c) { return { cv: c, ctx: c.getContext("2d"), parts: [] }; });
+  var topCv = $("fxTop"), topCtx = topCv.getContext("2d"), parts = [];
+  function sandCol() { var a = PAL.lit, b = PAL.shade, k = Math.random(); var c = k < .75 ? [a[0] + (b[0] - a[0]) * k * .5, a[1] + (b[1] - a[1]) * k * .5, a[2] + (b[2] - a[2]) * k * .5] : [a[0] * .8 + .2, a[1] * .8 + .2, a[2] * .8 + .2]; return "rgb(" + Math.round(c[0] * 255) + "," + Math.round(c[1] * 255) + "," + Math.round(c[2] * 255) + ")"; }
+  // what is under a screen point, and how near it is (about 1 for the nearest sand)
+  function probe(sx, sy) {
+    var d = toDesign(sx, sy), x = d[0], y = d[1], sw = swashY(x, T), sh = shoreY(x);
+    if (y < sw) {
+      if (lastUnder > .5) return { kind: "under", x: x, y: y, near: 1 };
+      return { kind: "surface", x: x, y: y, near: .35 + .85 * Math.min(1, Math.max(0, (sh - y) / (SHEET * .9))) };
+    }
+    var t2 = bandTop(2, x), t1 = bandTop(1, x), t0 = bandTop(0, x);
+    if (y <= t2) return { kind: "sand", band: 2, x: x, y: y, near: .8 + .45 * Math.min(1, (t2 - y) / Math.max(.01, t2 - sw)) };
+    if (y <= t1) return { kind: "sand", band: 1, x: x, y: y, near: .55 + .2 * Math.min(1, (t1 - y) / Math.max(.01, t1 - t2)) };
+    if (y <= t0) return { kind: "sand", band: 0, x: x, y: y, near: .36 + .16 * Math.min(1, (t0 - y) / Math.max(.01, t0 - t1)) };
+    return { kind: "sky" };
+  }
+  function kickSand(sx, sy, pr) {
+    var k = pr.near, n = Math.round(8 + 10 * k);
+    for (var i = 0; i < n; i++) fx[pr.band].parts.push({ x: sx + (Math.random() - .5) * 6 * k, y: sy, vx: (Math.random() - .5) * 110 * k, vy: -(40 + Math.random() * 110) * k, g: 700 * k, c: sandCol(), s: Math.max(.8, 1.6 * k), ground: sy + (Math.random() - .2) * 4 * k, life: 1.4 });
+    sfx.grains(k);
+  }
+  function touchWater(sx, sy, pr) {
+    addRipple(pr.x, pr.y, .55 + .45 * pr.near);
+    var k = pr.near, n = Math.round(3 + 5 * k);
+    for (var i = 0; i < n; i++) { var a = -Math.PI / 2 + (Math.random() - .5) * 1.2, v = (60 + Math.random() * 120) * k; parts.push({ kind: "drop", x: sx, y: sy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (.6 + Math.random() * 1.1) * k, life: 1, land: sy + Math.random() * 3, g: 900 * k }); }
+    sfx.drip(k);
+  }
+  function bubbles(sx, sy, n, spread) {
+    for (var i = 0; i < n; i++) parts.push({ kind: "bubble", x: sx + (Math.random() - .5) * spread, y: sy + (Math.random() - .5) * spread * .5, vy: -(50 + Math.random() * 90), r: .8 + Math.random() * 3.2, life: 8, ph: Math.random() * 9 });
+  }
+  // soft contact shadows so the people standing on a crest sit in the sand
+  var CONTACT = [{ L: 0, x: .722, w: .03, k: .7 }, { L: 0, x: 1.117, w: .024, k: .6 }, { L: 2, x: 1.006, w: .05, k: .8 }, { L: 2, x: .946, w: .06, k: .9 }];
+  function drawContact(c, li, P) {
+    var U = innerHeight / map[1], sh = P.shade;
+    CONTACT.forEach(function (s) {
+      if (s.L !== li) return;
+      var p = toScreen(s.x, bandTop(s.L, s.x) - .004 - s.L * .004), rx = s.w * U, ry = rx * .22;
+      c.save(); c.translate(p[0], p[1]); c.scale(1, ry / rx);
+      var g = c.createRadialGradient(0, 0, 0, 0, 0, rx), col = "rgba(" + Math.round(sh[0] * 160) + "," + Math.round(sh[1] * 150) + "," + Math.round(sh[2] * 190) + ",";
+      g.addColorStop(0, col + .34 * s.k + ")"); g.addColorStop(.55, col + .14 * s.k + ")"); g.addColorStop(1, col + "0)");
+      c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, 7); c.fill(); c.restore();
+    });
+  }
+  function drawFx(dt, t) {
+    fx.forEach(function (L, li) {
+      var c = L.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.cv.width, L.cv.height); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+      if (li === 0 && oy + map[1] > .55) drawSteam(c, t, PAL);
+      if (oy + map[1] > .3) drawContact(c, li, PAL);
+      if (oy + map[1] > .3) drawCastFx(c, li, t, PAL);
+      L.parts = L.parts.filter(function (p) {
+        p.life -= dt; if (p.life <= 0) return false;
+        if (!p.rest) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .97; if (p.vy > 0 && p.y >= p.ground) { p.y = p.ground; p.rest = true; p.life = Math.min(p.life, 1.6 + Math.random()); } }
+        c.globalAlpha = p.rest ? Math.min(1, p.life / 1.1) : 1; c.fillStyle = p.c; c.fillRect(p.x, p.y, p.s, p.s); return true;
+      });
+      c.globalAlpha = 1;
+    });
+    var c = topCtx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, topCv.width, topCv.height); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    parts = parts.filter(function (p) {
+      if (p.delay > 0) { p.delay -= dt; return true; }
+      p.life -= dt; if (p.life <= 0) return false;
+      if (p.kind === "drop") {
+        p.vy += (p.g || 1200) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.land != null && p.vy > 0 && p.y >= p.land) { var d = toDesign(p.x, p.y); addRipple(d[0], d[1], .12); return false; }
+        if (p.y > innerHeight + 20) return false;
+        c.fillStyle = "rgba(240,252,255," + Math.min(1, p.life * 1.5) * .8 + ")"; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill();
+      } else if (p.kind === "bubble") {
+        p.y += p.vy * dt; p.x += Math.sin(t * 5 + p.ph) * 14 * dt;
+        var surf = toScreen(0, shoreY(toDesign(p.x, p.y)[0]) - .006)[1];
+        if (p.y <= surf) { if (lastUnder > .5) { var d2 = toDesign(p.x, surf); addRipple(d2[0], d2[1], .08 + p.r * .03); } return false; }
+        if (p.y < -20) return false;
+        var a = Math.min(1, p.life * 2) * .55;
+        c.strokeStyle = "rgba(235,250,255," + a + ")"; c.lineWidth = .9; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.stroke();
+        c.fillStyle = "rgba(255,255,255," + a * .8 + ")"; c.beginPath(); c.arc(p.x - p.r * .35, p.y - p.r * .35, p.r * .28, 0, 7); c.fill();
+      } else if (p.kind === "puff") {
+        p.x += p.vx * dt; p.y += p.vy * dt; var q = toScreen(p.x, p.y), rr = (p.r + (p.max - p.life) * .01) * innerHeight / map[1], aa = Math.sin(p.life / p.max * Math.PI) * .35;
+        var gg = c.createRadialGradient(q[0], q[1], 0, q[0], q[1], rr); gg.addColorStop(0, "rgba(255,255,255," + aa + ")"); gg.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gg; c.beginPath(); c.arc(q[0], q[1], rr, 0, 7); c.fill();
+      } else if (p.kind === "sink") {
+        p.vy += 900 * dt; p.y += p.vy * dt; p.x += p.vx * dt;
+        if (p.y >= p.land) { if (Math.random() < .06) { var d3 = toDesign(p.x, p.y); addRipple(d3[0], d3[1], .1); } return false; }
+        c.fillStyle = p.c; c.fillRect(p.x, p.y, p.s, p.s);
+      }
+      return true;
+    });
+    drawSoldiers(c, t);
+    if (press && press.kind === "under" && pressHeld) { if (Math.random() < .6) bubbles(mouse.x, mouse.y, 1, 8); if (performance.now() > nextBubbleSound) { sfx.bubble(); nextBubbleSound = performance.now() + 160 + Math.random() * 200; } }
+  }
+  var hit = $("hit"), press = null, pressHeld = false;
+  hit.addEventListener("pointermove", function (e) {
+    mouse.vx = e.clientX - mouse.x; mouse.vy = e.clientY - mouse.y; mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true;
+    setHover(charAt(e.clientX, e.clientY));
+  });
+  hit.addEventListener("pointerleave", function () { mouse.on = false; setHover(null); });
+  hit.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return; startSound(); mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true;
+    var ch = charAt(e.clientX, e.clientY); if (ch) { enter(ch); press = null; return; }
+    var pr = probe(e.clientX, e.clientY); press = pr; press.x = e.clientX; press.y = e.clientY; pressHeld = false;
+    try { hit.setPointerCapture(e.pointerId); } catch (er) {}
+    if (pr.kind === "under") { bubbles(e.clientX, e.clientY, 5, 10); sfx.bubble(); press.timer = setTimeout(function () { pressHeld = true; }, 180); }
+  });
+  function release(e, act) {
+    if (!press) return; clearTimeout(press.timer);
+    if (act) { if (press.kind === "surface") touchWater(e.clientX, e.clientY, press); else if (press.kind === "sand") kickSand(e.clientX, e.clientY, press); }
+    press = null; pressHeld = false;
+  }
+  hit.addEventListener("pointerup", function (e) { release(e, true); });
+  hit.addEventListener("pointercancel", function (e) { release(e, false); });
+  $("cue").addEventListener("click", function () { scrollTo({ top: scrollMax, behavior: "smooth" }); });
+
+  /* ── the clock ── */
+  var face = $("dialFace"), tickG = $("ticks");
+  for (var ti = 0; ti < 24; ti++) { var a = ti / 24 * Math.PI * 2, big = ti % 6 === 0, r1 = big ? 37 : 40.5; var ln = document.createElementNS("http://www.w3.org/2000/svg", "line"); ln.setAttribute("x1", (Math.sin(a) * r1).toFixed(2)); ln.setAttribute("y1", (-Math.cos(a) * r1).toFixed(2)); ln.setAttribute("x2", (Math.sin(a) * 43).toFixed(2)); ln.setAttribute("y2", (-Math.cos(a) * 43).toFixed(2)); ln.setAttribute("stroke-width", big ? "1.8" : ".9"); tickG.appendChild(ln); }
+  function setDial(h) {
+    $("hourHand").setAttribute("transform", "rotate(" + ((h - 12) / 24 * 360).toFixed(2) + ")");
+    $("minHand").setAttribute("transform", "rotate(" + ((h % 1) * 360).toFixed(2) + ")");
+    face.setAttribute("aria-valuenow", h.toFixed(2)); face.setAttribute("aria-valuetext", fmt(h) + (live ? ", your time" : ""));
+    $("nowBtn").setAttribute("aria-pressed", String(live));
+  }
+  var dragHand = null;
+  function dialAngle(e) { var rc = face.getBoundingClientRect(), dx = e.clientX - (rc.left + rc.width / 2), dy = e.clientY - (rc.top + rc.height / 2); return { ang: (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360, dist: Math.hypot(dx, dy) / (rc.width / 2) * 50 }; }
+  function applyDial(e) {
+    var d = dialAngle(e);
+    if (dragHand === "hour") previewHour = ((d.ang / 360) * 24 + 12) % 24;
+    else { var m = d.ang / 360 * 60, prev = (previewHour % 1) * 60, base = Math.floor(previewHour); if (prev > 45 && m < 15) base = (base + 1) % 24; else if (prev < 15 && m > 45) base = (base + 23) % 24; previewHour = base + m / 60; }
+    if (still) redraw();
+  }
+  face.addEventListener("pointerdown", function (e) { e.preventDefault(); var d = dialAngle(e); if (live) { previewHour = hourNow(); live = false; } dragHand = d.dist > 29 ? "min" : "hour"; try { face.setPointerCapture(e.pointerId); } catch (er) {} applyDial(e); });
+  face.addEventListener("pointermove", function (e) { if (dragHand) applyDial(e); });
+  face.addEventListener("pointerup", function () { dragHand = null; });
+  face.addEventListener("keydown", function (e) {
+    var step = { ArrowRight: .25, ArrowUp: .25, ArrowLeft: -.25, ArrowDown: -.25, PageUp: 1, PageDown: -1 }[e.key];
+    if (step) { e.preventDefault(); if (live) { previewHour = hourNow(); live = false; } previewHour = (previewHour + step + 24) % 24; if (still) redraw(); }
+    if (e.key === "Home") live = true;
+  });
+  $("nowBtn").addEventListener("click", function () { live = true; if (still) redraw(); });
+
+  /* ── the proof-of-concept note ── */
+  var note = $("note"), noteGo = $("noteGo"), noteFrom = null;
+  function closeNote() { note.hidden = true; startSound(); if (noteFrom) noteFrom.focus(); }
+  function openNote() { noteFrom = document.activeElement; note.hidden = false; noteGo.focus(); }
+  noteGo.addEventListener("click", closeNote);
+  note.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); if (e.key === "Escape") closeNote(); else noteGo.focus(); } });
+  $("aboutBtn").addEventListener("click", openNote);
+  if (qs.has("still")) note.hidden = true; else setTimeout(function () { noteGo.focus(); }, 0);
+
+  /* ── start ── */
+  try {
+    ["sky", "far", "mid", "near", "water", "light"].forEach(function (id) { views.push(makeCtx(id)); });
+    deepV = makeCtx("deep"); loadSprites(deepV.gl);
+  } catch (e) { document.body.appendChild(Object.assign(document.createElement("div"), { className: "nogl", textContent: "This scene needs WebGL 2. " + (e.message || "") })); console.error(e); return; }
+  history.scrollRestoration = "manual";
+  addEventListener("resize", resize); resize();
+  addEventListener("scroll", function () { if (still) redraw(); }, { passive: true });
+  if (qs.has("scroll")) scrollTo(0, parseFloat(qs.get("scroll")) * scrollMax);
+  requestAnimationFrame(frame);
+  window.__ready = true;
+  window.__debug = { fish: FISH, reef: REEF, sprites: SPR, scrollMax: function () { return scrollMax; }, parts: function () { return parts.length; }, chars: CHARS, charAt: charAt, fx: function () { return fx.map(function (l) { return l.parts.length; }); }, rip: function () { return ripI; }, under: function () { return lastUnder; }, probe: probe, toScreen: toScreen, soldiers: function () { return soldiers; } };
+})();
+</script>
+</body>
+</html>
